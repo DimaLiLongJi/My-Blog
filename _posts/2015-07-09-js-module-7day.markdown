@@ -2,7 +2,7 @@
 layout:     keynote
 title:      "Example Post using Keynote Layout"
 subtitle:   "Keynote: JavaScript Modularization Journey"
-iframe:     "http://huangxuan.me/js-module-7day/"
+iframe:     "https://huangxuan.me/js-module-7day/"
 date:       2015-07-09
 author:     "Hux"
 header-img: "img/post-bg-js-version.jpg"
@@ -21,7 +21,7 @@ tags:
 
 ### [Watch Slides →](http://huangxuan.me/js-module-7day)
 
-<img src="http://huangxuan.me/js-module-7day/attach/qrcode.png" width="350" height="350"/>
+<img src="https://huangxuan.me/js-module-7day/attach/qrcode.png" width="350" height="350"/>
 
 <small class="img-hint">你也可以通过扫描二维码在手机上观看</small>
 
