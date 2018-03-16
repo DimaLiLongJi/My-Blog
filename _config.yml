@@ -6,7 +6,7 @@ email: woshililongji@163.com
 description: "这是李龙吉的技术博客"
 keyword: "tk123456"
 url: "https://dimalilongji.github.io/my-blog"              # your host, for absolute URL
-# baseurl: "/my-blog"         # for example, '/blog' if your blog hosted on 'host/blog'
+baseurl: "/my-blog"         # for example, '/blog' if your blog hosted on 'host/blog'
 
 
 
