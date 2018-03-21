@@ -2,12 +2,13 @@
 layout:     post
 title:      "浅谈angularJs中bindings的使用"
 subtitle:   "angularJs中component的bindings用法总结"
-date:       2015-09-22
-author:     "LLJ"
+date:       2018-03-19
+author:     "本人"
 header-img: "img/2018/03/angularJs.jpeg"
 tags:
     - 前端开发
     - JavaScript
+    - Angular
 ---
 
 
