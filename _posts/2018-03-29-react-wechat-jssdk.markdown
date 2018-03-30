@@ -26,7 +26,7 @@ tags:
 微信有bug,安卓手机有问题.....
 
 
-## SPA中wx.config失败
+## 解决
 
 啊，其实这个很多原因。SPA route改变，需要重新config,但是同一个url只能config一次，所以就会造成页面config失败了。
 
@@ -34,6 +34,7 @@ tags:
 2. 在`configWX`中根据`location.href`判断是否需要更新，并且将更新的func改为异步执行，间隔200毫秒
 3. 在具体执行confing的地方，先把事先需要的所有微信调用事件写入`config.jsApiList`
 4. 再搞一个数组存储已经config的页面，判断`configedUrlList.indexOf(link)`是不是为-1，**啊其实就是判断是否重复config**
+5. angularJs的route 里面有'#', 需要对location做整理`location.href.split('#')[0]`
 
 ```javascript
 // 在生命周期中，根据route改变重新configWX
@@ -43,19 +44,19 @@ componentWillReceiveProps(nextProps) {
 
 // config微信分享的地方
 configWX = () => {
-  const href = location.href;
+  const href = location.href.split('#')[0]; // 不能带#
   setTimeout(() => {
     if (this.configedUrl === href) return;
-    if (location.href !== href) return;
+    if (location.href.split('#')[0] !== href) return;
     const config = {
-      link: location.href,
+      link: location.href.split('#')[0],
       title,
       desc,
       imgUrl,
       onSuccess: this.onShareSuccess,
     };
     setWxShareInfo(config);
-    this.configedUrl = location.href;
+    this.configedUrl = location.href.split('#')[0];
   }, 200);
 }
 
