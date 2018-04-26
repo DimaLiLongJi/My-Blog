@@ -1,10 +1,10 @@
 ---
 layout: post
-title: 简略实现一个前端mvvm双向绑定
-subtitle: 数据劫持+发布订阅模式: Object.defineProperty
-date: 2017-10-11T00:00:00.000Z
-author: 本人
-header-img: img/2017/10/mvvm.jpeg
+title: "简略实现一个前端mvvm双向绑定"
+subtitle:" 数据劫持+发布订阅模式: Object.defineProperty"
+date: 2017-10-11
+author: "本人"
+header-img: "img/2017/10/mvvm.jpeg"
 tags:
   - 前端开发
   - JavaScript
