@@ -1,0 +1,277 @@
+---
+layout: post
+title: 简略实现一个前端mvvm双向绑定
+subtitle: 数据劫持+发布订阅模式: Object.defineProperty
+date: 2017-10-11T00:00:00.000Z
+author: 本人
+header-img: img/2017/10/mvvm.jpeg
+tags:
+  - 前端开发
+  - JavaScript
+---
+收到此篇文章启发：[link](https://mp.weixin.qq.com/s/uhahI78U9-qbjrjAT2WZmA)，照着模仿了一遍 感谢360奇舞团。
+
+用过Angular.js(1.xxx)的小伙子肯定对`$watch`和双向绑定印象深刻，其实和本文讲的没多大关系，因为人家用的是**脏检查**。但是在后来的react,vue,ng中，貌似已经开始使用一个吊炸天的ES5api来实现数据劫持+发布订阅，那就是`Object.defineProperty`。
+
+### 介绍：Object.defineProperty()
+
+Object.defineProperty() 方法直接在一个对象上定义一个新属性，或者修改一个已经存在的属性， 并返回这个对象。
+
+#### 语法
+1. `Object.defineProperty(obj, prop, descriptor)`
+
+2. 参数
+  - `obj` 需要定义属性的对象。
+  - `prop` 需被定义或修改的属性名。
+  - `descriptor` 需被定义或修改的属性的描述符。
+
+3. descriptor **get,set设置时不能设置writable和value，它们代替了二者且是互斥的**
+  - `configurable`: 仅当该属性的 configurable 为 true 时，该属性才能够被改变，也能够被删除。默认为 false
+  - `enumerable`: 仅当该属性的 enumerable 为 true 时，该属性才能够出现在对象的枚举属性中。默认为 false
+  - `value`: 被定义或是修改的属性名对应的值
+  - `writable`: 可重写 仅当仅当该属性的writable为 true 时，该属性才能被赋值运算符改变。默认为 false
+  - `get`: 一个给属性提供 getter 的方法，如果没有 getter 则为 undefined。该方法返回值被用作属性值。默认为 undefined **获取obj.prop的时候会触发**
+  - `set`: 一个给属性提供 setter 的方法，如果没有 setter 则为 undefined。该方法将接受唯一参数，并将该参数的新值分配给该属性。默认为 undefined。**设置obj.prop的时候会触发 obj.prop = vaule**
+
+  ```javascript
+  let person = {};
+  let sex = 'man';
+  person.name = '傻逼';
+  // get,set设置时不能设置writable和value，它们代替了二者且是互斥的
+  Object.defineProperty(person, 'sex', {
+    // value: sex,
+    configurable: true,
+    enumerable: true,
+    // writable: true,
+    get() { // 获取obj.prop的时候会触发
+      console.log('getter: ', sex);
+      return sex; // 可以return一个值 这个值为prop的值
+    },
+    set(val) { // 设置obj.prop的时候会触发 obj.prop = vaule
+      console.log('setter: ', val); // 只能set 自己以外的
+    }
+  });
+
+  person.sex; // VM71:11 getter: man
+  ```
+
+#### es6 class中的getter和setter
+  - class中的getter和setter 分别为拦截和设置 **可以设置多个**
+  - get prop(){}: 获取一个实例的属性prop触发，需要return
+  - set prop(){}: 设置一个实例的属性prop的触发，例如 name.xxx =  xxxxx;
+
+  ```javascript
+    class Person { // this里的值都是实例的对象的属性
+      constructor(name) { // 参数，给实例的name赋值
+        this.name = name;
+      }
+      get name() { // new Person.name截取属性name
+        return this._name;
+      }
+      set name(name) { // 设置name的时候回触发
+        this._name = name;
+      }
+      get sex() {
+        return this._sex; // 必须return 出自己以外的
+      }
+      set sex(sex) {
+        this._sex = sex; // 必须set 出自己以外的
+      }
+    }
+    let person = new Person('傻逼');
+  ```
+
+#### es6 class与Object.defineProperty中的getter和setter
+  - **getter 必须return非该属性** 一定要用第三个变量
+  - **setter 必须set非该属性**
+
+
+### 搞起来吧 mvvm
+
+1. 创建构造函数
+ - 根据vue的写法，我把data挂在了options然后放入了$options
+  ```javascript
+    function Mvvm(options = {}) {
+      this.$options = options;
+      // data挂载到$options上
+      let data = this._data = this.$options.data;
+      // observe 劫持数据
+      observe(data);
+      // 还是通过数据劫持，把new Mvvm的某个属性指向data中
+      for (let key in data) {
+        Object.defineProperty(this, key, {
+          configurable: true,
+          get() {
+            return this._data[key]; // 如this.a = {b: 1}
+          },
+          set(newVal) {
+            this._data[key] = newVal;
+          }
+        });
+      }
+    }
+  ```
+
+2. 数据劫持的function `observe`
+  - 接下来要做数据劫持，首先写一个构造函数，遍历对象属性再给每个属性添加一个 getter setter
+  - 为了深层到每一个对象的属性，我用了递归，把每个属性又劫持了一下
+  - 接下来就可以用我们很吊的一个api了，`Object.defineProperty()`
+  ```javascript
+    // 先创建一个构造函数Observe
+    function Observe(data) {
+      for (let key in data) {
+        let val = data.key;
+        observe(val);
+        Object.defineProperty(data, key, {
+          configurable: true,
+          enumerable: true,
+          get() {
+            return val;
+          },
+          set(newVal) {
+            if (typeof val === 'object') {
+              if (JSON.stringify(val) === JSON.stringify(newVal)) return;
+            } else {
+              if (newVal === val) return;
+            }
+             val = newVal; // 如果以后再获取值(get)的时候，将刚才设置的值再返回去
+             observe(newVal);
+          }
+        });
+      }
+    }
+
+    function observe(data) {
+      // 如果不是对象的话就直接return掉 防止递归溢出
+      if (!data || typeof data !== 'object') return;
+      return new Observe(data);
+    }
+  ```
+
+3. 通过新api把Mvvm的实例的属性指向data中
+  ```javascript
+    function Mvvm(options = {}) {
+      // observe 劫持数据
+      observe(data);
+      // 还是通过数据劫持，把new Mvvm的某个属性指向data中
+      for (let key in data) {
+        Object.defineProperty(this, key, {
+          configurable: true,
+          get() {
+            return this._data[key]; // 如this.a = {b: 1}
+          },
+          set(newVal) {
+            this._data[key] = newVal;
+          }
+        });
+      }
+    }
+    // 此时就可以简化写法了
+    console.log(mvvm.a.b); // 1
+    mvvm.a.b = 'ok';
+    console.log(mvvm.a.b); // 'ok'
+  ```
+
+4. 该把模板里的{{}}取出来了，双向绑定到dom上
+  ```javascript
+    function Mvvm(options = {}) {
+      // observe 劫持数据
+      observe(data);
+      // 双向绑定到dom上
+      new Compile(options.el, this);
+    }
+
+    function Compile(el, vm) {
+      // 挂载到this上
+      vm.$el = document.querySelector(el);
+      // 利用文档流碎片，一次性添加进dom中，来节约内存
+      let fragment = document.createDocumentFragment();
+
+      while (child = vm.$el.firstChild) {
+        fragment.appendChild(child);
+      }
+
+      function replace(frag) {
+        Array.from(frag.childNodes).forEach(node => {
+         let txt = node.textContent;
+         let reg = /\{\{(.*?)\}\}/g; // 正则匹配{{}}
+
+         if (node.nodeType === 3 && reg.test(txt)) {
+           function replaceTxt() {
+             node.textContent = txt.replace(reg, (matched, placeholder) => {
+               console.log(placeholder); // 匹配到的分组 如：song, album.name, singer...
+               new Watcher(vm, placeholder, replaceTxt); // 监听变化，进行匹配替换内容
+               return placeholder.split('.').reduce((val, key) => {
+                 return val[key];
+               }, vm);
+             });
+           };
+           replaceTxt();
+         }
+         // 如果还有子节点，继续递归replace
+         if (node.childNodes && node.childNodes.length) replace(node);
+         // 监听变化
+         // 给Watcher再添加两个参数，用来取新的值(newVal)给回调函数传参
+         new Watcher(vm, RegExp.$1, newVal => {
+           node.textContent = txt.replace(reg, newVal).trim();
+         });
+        });
+       }
+
+       function Dep() {
+         // 一个数组(存放函数的事件池)
+         this.subs = [];
+       }
+       Dep.prototype = {
+         addSub(sub) {
+           this.subs.push(sub);
+         },
+         notify() {
+           // 绑定的方法，都有一个update方法
+           this.subs.forEach(sub => sub.update());
+         }
+       };
+
+      function Watcher(vm, exp, fn) {
+        this.fn = fn;
+        this.vm = vm;
+        this.exp = exp;
+        // 添加一个事件
+        // 这里我们先定义一个属性
+        Dep.target = this;
+        let arr = exp.split('.');
+        let val = vm;
+        arr.forEach(key => { // 取值
+          val = val[key]; // 获取到this.a.b，默认就会调用get方法
+        });
+        Dep.target = null;
+      }
+
+      replace(fragment); // 替换内容
+      vm.$el.appendChild(fragment); // 再将文档碎片放入el中
+    }
+  ```
+
+  5. 发布订阅 双向改变值
+  ```javascript
+  function Observe(data) {
+    let dep = new Dep();
+    // 省略...
+    Object.defineProperty(data, key, {
+      get() {
+        Dep.target && dep.addSub(Dep.target); // 将watcher添加到订阅事件中 [watcher]
+        return val;
+      },
+      set(newVal) {
+        if (typeof val === 'object') {
+          if (JSON.stringify(val) === JSON.stringify(newVal)) return;
+        } else {
+          if (newVal === val) return;
+        }
+        val = newVal;
+        observe(newVal);
+        dep.notify(); // 让所有watcher的update方法执行即可
+      }
+  })
+}
+  ```

@@ -18,7 +18,7 @@ angularJs1.5之后，component和directive中用于双向绑定单向绑定的AP
 
 按照分类一共有4中：`'@', '<', '=', '&'`。让我们分别来探索下四种attributes的用法。
 
-```js
+```javascript
   bindings: {
     attr1: '@',
     attr2: '<',
@@ -39,7 +39,7 @@ angularJs1.5之后，component和directive中用于双向绑定单向绑定的AP
 
 让我们从`@`开始，这是四个中最直接的，因为它只是将属性作为文本读取。 换句话说，我们将一个字符串传递给组件。
 
-```js
+```javascript
 // component
 app.component("readingstring", {
   bindings: { text: '@' },
@@ -57,7 +57,7 @@ app.component("readingstring", {
 
 属性为表达式，并在表达式改变时重新评估它。 其实就是动态输入然后双向绑定传给父组件
 
-```js
+```javascript
 // component
 app.component("dynamicinput",{
   bindings: { in: '=' },
@@ -75,7 +75,7 @@ app.component("dynamicinput",{
 
 #### 对外输出`'&'` 单向传输 子=>父
 
-```js
+```javascript
 // component
 app.component("output",{
   bindings: { out: '&' },
@@ -96,7 +96,7 @@ Outer value: {{count}}
 
 比上述所有更好的解决方案是使用`'<'`通过传递回调来创建输出！
 
-```js
+```javascript
 // component
 app.component("output",{
   bindings: { out: '<' },

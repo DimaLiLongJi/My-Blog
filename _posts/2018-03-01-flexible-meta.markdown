@@ -18,7 +18,7 @@ tags:
 
 HTML`meta`标签中，当设置标签name为`viewport`时候，可以手动设置缩放的最大最小和禁止手势缩放。
 
-```js
+```javascript
   content: {
     initial-scale: '初始的缩放比例 一般为1',
     minimum-scale: '表示最小的缩放比例',
@@ -35,7 +35,7 @@ HTML`meta`标签中，当设置标签name为`viewport`时候，可以手动设�
 
 ### 上代码
 
-```js
+```javascript
 class Index extends React.Component {
   componentWillMount() {
     if (this.context.isMobile) {
