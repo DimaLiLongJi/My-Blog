@@ -2,16 +2,18 @@
 layout: post
 title: "简略实现一个前端mvvm双向绑定"
 subtitle:" 数据劫持+发布订阅模式: Object.defineProperty"
-date: 2017-10-11
+date: 2018-04-26
 author: "本人"
-header-img: "img/2017/10/mvvm.jpeg"
+header-img: "img/2018/04/mvvm.jpeg"
 tags:
   - 前端开发
   - JavaScript
 ---
 收到此篇文章启发：[link](https://mp.weixin.qq.com/s/uhahI78U9-qbjrjAT2WZmA)，照着模仿了一遍 感谢360奇舞团。
 
-用过Angular.js(1.xxx)的小伙子肯定对`$watch`和双向绑定印象深刻，其实和本文讲的没多大关系，因为人家用的是**脏检查**。但是在后来的react,vue,ng中，貌似已经开始使用一个吊炸天的ES5api来实现数据劫持+发布订阅，那就是`Object.defineProperty`。
+## 正文
+
+用过Angular.js(1.xxx)的小伙子肯定对`$watch`和双向绑定印象深刻，其实和本文讲的没多大关系，因为人家用的是**脏检查**。但是在后来的react,vue,ng中，貌似已经开始使用一个吊炸天的ES5api来实现数据劫持+发布订阅，那就是`Object.defineProperty`(其实es6的class也提供了存取set get)。
 
 ### 介绍：Object.defineProperty()
 
@@ -85,6 +87,8 @@ Object.defineProperty() 方法直接在一个对象上定义一个新属性，�
   - **getter 必须return非该属性** 一定要用第三个变量
   - **setter 必须set非该属性**
 
+
+## 根据上述理论，模仿360奇舞团提供的写法大致写了一遍
 
 ### 搞起来吧 mvvm
 
