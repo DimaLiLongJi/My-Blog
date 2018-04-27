@@ -39,7 +39,10 @@ class EventEmitter {
     if (this.handelFn[eventName] && this.handelFn[eventName] instanceof Array) {
       this.handelFn[eventName].forEach((callback) => {
         if (callback && callback instanceof Function) {
-          callback();
+          const funcs = this.handelFn[eventName];
+          funcs.forEach(fn => {
+            fn.call(null, data);
+          });
         }
       });
     } else {
