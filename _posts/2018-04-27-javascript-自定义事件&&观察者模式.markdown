@@ -20,7 +20,7 @@ tags:
 1. 自定义事件绑定与触发
 
 ```javascript
-class Event {
+class EventEmitter {
   constructor() {
     console.log('init Event');
     this.handelFn = {};
@@ -67,7 +67,7 @@ class Event {
 function el() {
   console.log('222');
 }
-let event = new Event();
+let event = new EventEmitter();
 event.on('chufa', el);
 event.emit('chufa');
 event.remove('chufa');
