@@ -35,13 +35,17 @@ class EventEmitter {
     }
   }
 
-  emit(eventName) {
+  emit(eventName, data) {
     if (this.handelFn[eventName] && this.handelFn[eventName] instanceof Array) {
       this.handelFn[eventName].forEach((callback) => {
         if (callback && callback instanceof Function) {
           const funcs = this.handelFn[eventName];
           funcs.forEach(fn => {
-            fn.call(null, data);
+            if (data) {
+              fn.call(null, data);
+            } else {
+              fn();
+            }
           });
         }
       });
@@ -72,7 +76,7 @@ function el() {
 }
 let event = new EventEmitter();
 event.on('chufa', el);
-event.emit('chufa');
+event.emit('chufa', { a: 1 });
 event.remove('chufa');
 ```
 
