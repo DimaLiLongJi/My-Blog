@@ -4,7 +4,7 @@ title: "JavaScript的自定义事件&&观察者模式简单实现"
 subtitle: ""
 date: 2018-04-27
 author: "本人"
-header-img: "img/2018/04/Observable.jpeg"
+header-img: "img/2018/04/Observable.jpg"
 tags:
   - 前端开发
   - JavaScript
