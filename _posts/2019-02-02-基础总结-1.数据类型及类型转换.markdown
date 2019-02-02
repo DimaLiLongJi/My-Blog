@@ -1,0 +1,126 @@
+---
+layout:     post
+title:      "基础总结-1.数据类型及类型转换"
+subtitle:   "js 基础总结"
+date:       2019-02-02
+author:     "本人"
+header-img: "img/2019/summary/js.jpeg"
+tags:
+    - 前端开发
+    - 基础总结
+    - javascript
+---
+
+## 内置类型
+
+JS 中分为七种内置类型，七种内置类型又分为两大类型：基本类型和对象（Object）。
+
+基本类型有六种： `null`, `undefined`, `number(float)`, `boolean`, `string`, `symbol`
+
+**NaN 也属于 number**
+
+
+## Typeof
+
+### typeof 对于基本类型，除了 null 都可以显示正确的类型
+
+因为早期32位vm，使用低位存储了变量的类型信息，000 开头代表是对象，而null则为全0
+
+```javascript
+typeof 1 // 'number'
+typeof '1' // 'string'
+typeof undefined // 'undefined'
+typeof true // 'boolean'
+typeof Symbol() // 'symbol'
+typeof b // b 没有声明，但是还会显示 undefined
+typeof null // 'object'
+```
+
+### typeof 对于对象，除了函数都会显示 object
+
+```javascript
+typeof [] // 'object'
+typeof {} // 'object'
+typeof console.log // 'function'
+```
+
+通过`Object.prototype.toString.call()`来获得正确的类型，返回`[object 类型]`
+
+```javascript
+Object.prototype.toString.call(null) // [object Null]
+Object.prototype.toString.call(undefined) // [object Undefined]
+Object.prototype.toString.call('111') // [object String]
+Object.prototype.toString.call(111) // [object Number]
+Object.prototype.toString.call(true) // [object Boolean]
+Object.prototype.toString.call({a:1}) // [object Object]
+Object.prototype.toString.call([1]) // [object Array]
+Object.prototype.toString.call(console.log) // [object Function]
+```
+
+## 类型转换
+
+### 转boolean
+
+除了`undefined`,`null`,`false`,`NaN`,`0`,`+0`,`-0`,`''`全部转换为`true`
+
+### 对象转基本类型
+
+对象在转换为基本类型时，会优先调用`[Symbol.toPrimitive]()`,然后调用`valueOf()`，如果`valueOf()`返回一个非基本类型时则会继续调用`toString()`。
+
+`[Symbol.toPrimitive]()`，`valueOf()`，`toString()`你可以重写。
+
+```javascript
+let a = {
+	valueOf() {
+		return [1];
+	},
+	toString() {
+		return '1'
+	}
+};
+a += '1' // '11'
+```
+
+### 四则运算符
+
+加法`+`：如果有`string`类型，则全部转换为字符串
+
+其他运算：如果有`number`类型，则全部转换为`number`
+
+```javascript
+1 + '1' //  => '1' + '1' => '11'
+2 * '2' // => 2 * 2 => 4
+[1, 2] + [2, 1] // => '1,2' + '2,1' => '1,22,1'
+```
+
+### == 操作符
+
+**其实都是转换成`number`再比较**
+
+a == b 
+
+- a,b 类型相同
+  1. a,b => `null` || `undefined` => true
+  2. a,b => `number` => 比较数是否相同
+  3. a,b => `string` => 比较字符序列
+  4. a,b => `Object` => 比较指针是否同一个
+
+- a,b 类型不同
+  1. a:`null` b:`undefined` => true
+  2. a:`string` || `boolean` b:`number` => 先转换为`number`再比较 **`number` 优先级大于 `string` `boolean`**
+  3.  a: `Object` b:`number` => `Object`先转换为基础类型再比较 **对象转换基础类型 => `[Symbol.toPrimitive]()` => `valueOf()` => `toString()` 再比较**
+
+```javascript
+[] == ![]
+// [] == ![]  =>  [] == false
+// [] == false  =>  [] == Number(false)  =>  [] == 0
+// [] == 0  =>  toPrimitive([]) == 0  =>  [].toString == 0  =>  '' == 0
+// '' == 0  =>  0 == 0
+```
+
+
+### 比较运算符
+
+如果是对象，就通过 toPrimitive 转换对象
+
+如果是字符串，就通过 unicode 字符索引来比较
