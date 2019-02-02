@@ -1,0 +1,115 @@
+---
+layout:     post
+title:      "基础总结-2.原型及new"
+subtitle:   "js 基础总结"
+date:       2019-02-02
+author:     "本人"
+header-img: "img/2019/summary/js.jpeg"
+tags:
+    - 基础总结
+---
+
+
+## 原型
+
+### 显式原型`prototype` 与 隐式原型`__proto__`
+
+因为在 JS 中是没有类（Class语法糖，实际上还是原型继承）的概念的，为了实现类似继承的方式，通过 `__proto__` 将对象和原型联系起来组成原型链，得以让对象可以访问到不属于自己的属性。
+
+1. 每个函数`Function` 都有 显式原型属性`prototype`，除了 `Function.prototype.bind()`
+2. 函数的属性 `prototype` 的 `constructor` 又指向该函数
+3. 每个对象`Object` 都有 隐式原型属性`__proto__`，该属性指向对象的 **构造函数的 `prototype`** (其实这个属性指向了 `[[prototype]]`，但是 `[[prototype]]` 是内部属性，我们并不能访问到，所以使用 `__proto__` 来访问。)
+4. 当对象没有某个属性时，对象会通过 属性`__proto__` 去创建对对象的构造函数的 `prototype` 上去访问是否存在该属性。
+
+### 原型链
+
+```
+`new Demo` => (没有属性或方法的话)
+           (`Demo`的`__proto__`) => `Demo`的`prototype` (没有属性或方法的话)
+                                       => (`Demo`的`prototype`的`__proto__`或`Demo`的`__proto__`的`__proto__`) => `Function`的`prototype` (没有属性或方法的话)
+                                                                => (`Function`的`prototype`的`__proto__`或`Demo`的`__proto__`的`__proto__`的`__proto__`) => `Object`的`prototype` (没有属性或方法的话)
+                                                                                                => (`Object`的`prototype`的`__proto__`或`Demo`的`__proto__`的`__proto__`的`__proto__`的`__proto__`) => `null`
+```
+
+对象会沿着 `__proto__` 一直向上查找（其实就是沿着构造函数的`prototype`）不停向上查找
+
+这个链式查找的过程貌似就叫做原型链。
+
+
+## new
+
+new时候发生了什么
+
+1. 新生成了一个对象
+2. 生成的对象的隐式原型指向到构造函数的显式原型
+3. 绑定 this
+4. 执行构造函数
+5. 返回新对象
+
+按照上述我们来实现个假 `new`
+
+```javascript
+function createObject() {
+    // 创建一个空的对象
+    const obj = new Object();
+    // 删除第一个参数构造函数，并获得构造函数
+    const ConstructorFunc = [].shift.call(arguments); 
+    // 链接到原型
+    obj.__proto__ = ConstructorFunc.prototype;
+    // 绑定 this，执行构造函数传入删除构造函数后的参数
+    const result = ConstructorFunc.apply(obj, arguments);
+    // 确保 new 出来的是个对象
+    return typeof result === 'object' ? result : obj;
+}
+```
+
+对于创建一个对象来说，更推荐使用字面量的方式创建对象（无论性能上还是可读性）。因为你使用 `new Object()` 的方式创建对象需要通过作用域链一层层找到 `Object`，但是你使用字面量的方式就没这个问题。
+
+此外注意下 `new` 之后的方法执行，两者结果不同。
+
+```javascript
+new Foo.getName();   // => new (Foo.getName())
+new Foo().getName(); // => (new Foo()).getName()
+```
+
+
+## instanceof
+
+通过原型链的查找机制，`instanceof` 可以更加准确判断对象的类型。
+
+因为 `instanceof` 内部机制是通过判断对象的原型链中是不是能找到类型的 prototype。
+
+1. 获取类型（右侧）的显式原型
+2. 获取对象（左侧）的隐式原型
+3. 递归判断是否相同
+
+让我们实现一个 `instanceof`。
+
+```javascript
+function instanceofFunc(left, right) {
+    // 获得类型的显式原型
+    const prototype = right.prototype;
+    // 获得对象的隐式原型
+    const proto = left.__proto__;
+    // 递归判断对象的显式原型是否等于类型的隐式原型
+    // 下面两种都可以
+
+    // while (true) {
+    // 	if (left === null) return false;
+    // 	if (prototype === left) return true;
+    // 	left = left.__proto__;
+    // }
+
+    if (left === null) return false;
+    else if (prototype === proto) return true;
+    else return instanceofFunc(proto, right);
+}
+```
+
+
+## this的指向
+
+1. 函数里的`this`是调用函数前的对象 （`a.xx()` => `xx`的`this`是`a`）
+2. 全局函数非严格模式指向`window`，严格模式是`undefined`
+3. 匿名函数的`this`为创建时的执行上下文
+4. `Function.prototype.call()` `Function.prototype.bind()` `Function.prototype.apply()` 会改变`this`

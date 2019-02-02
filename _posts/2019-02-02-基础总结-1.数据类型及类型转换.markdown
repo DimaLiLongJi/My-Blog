@@ -55,6 +55,7 @@ Object.prototype.toString.call([1]) // [object Array]
 Object.prototype.toString.call(console.log) // [object Function]
 ```
 
+
 ## 类型转换
 
 ### 转boolean
