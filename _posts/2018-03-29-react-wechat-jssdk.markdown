@@ -7,7 +7,6 @@ author: 本人
 header-img: img/2018/03/wechat.jpeg
 tags:
   - 前端开发
-  - JavaScript
   - 微信开发
 ---
 

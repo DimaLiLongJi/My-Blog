@@ -7,7 +7,6 @@ author:     "本人"
 header-img: "img/2017/10/promise.png"
 tags:
     - 前端开发
-    - JavaScript
 ---
 
 有这样的一个面试题：问输出结果

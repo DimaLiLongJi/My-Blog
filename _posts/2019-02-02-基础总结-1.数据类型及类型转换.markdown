@@ -6,9 +6,7 @@ date:       2019-02-02
 author:     "本人"
 header-img: "img/2019/summary/js.jpeg"
 tags:
-    - 前端开发
     - 基础总结
-    - javascript
 ---
 
 ## 内置类型

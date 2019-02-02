@@ -6,8 +6,6 @@ date: 2018-04-27
 author: "本人"
 header-img: "img/2018/04/Observable.jpg"
 tags:
-  - 前端开发
-  - JavaScript
   - 设计模式
 ---
 最近玩了一下NG5，其中的rx.js，很厉害，顺便直接学习了下观察者模式。
