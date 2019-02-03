@@ -1,8 +1,8 @@
 ---
 layout:     post
-title:      "基础总结-2.原型及new"
+title:      "基础总结-2.原型,new,作用域及闭包"
 subtitle:   "js 基础总结"
-date:       2019-02-02
+date:       2019-02-03
 author:     "本人"
 header-img: "img/2019/summary/js.jpeg"
 tags:
@@ -19,16 +19,15 @@ tags:
 1. 每个函数`Function` 都有 显式原型属性`prototype`，除了 `Function.prototype.bind()`
 2. 函数的属性 `prototype` 的 `constructor` 又指向该函数
 3. 每个对象`Object` 都有 隐式原型属性`__proto__`，该属性指向对象的 **构造函数的 `prototype`** (其实这个属性指向了 `[[prototype]]`，但是 `[[prototype]]` 是内部属性，我们并不能访问到，所以使用 `__proto__` 来访问。)
-4. 当对象没有某个属性时，对象会通过 属性`__proto__` 去创建对对象的构造函数的 `prototype` 上去访问是否存在该属性。
+4. 当对象没有某个属性时，对象会通过 属性`__proto__` 去创建该对象的构造函数的 `prototype` 上去访问是否存在该属性。
 
 ### 原型链
 
 ```
 `new Demo` => (没有属性或方法的话)
            (`Demo`的`__proto__`) => `Demo`的`prototype` (没有属性或方法的话)
-                                       => (`Demo`的`prototype`的`__proto__`或`Demo`的`__proto__`的`__proto__`) => `Function`的`prototype` (没有属性或方法的话)
-                                                                => (`Function`的`prototype`的`__proto__`或`Demo`的`__proto__`的`__proto__`的`__proto__`) => `Object`的`prototype` (没有属性或方法的话)
-                                                                                                => (`Object`的`prototype`的`__proto__`或`Demo`的`__proto__`的`__proto__`的`__proto__`的`__proto__`) => `null`
+                                       => (`Demo`的`prototype`的`__proto__`或`Demo`的`__proto__`的`__proto__`) => `Object`的`prototype` (没有属性或方法的话)
+                                                                                                                => (`Object`的`prototype`的`__proto__`或`Demo`的`__proto__`的`__proto__`的`__proto__`) => `null`
 ```
 
 对象会沿着 `__proto__` 一直向上查找（其实就是沿着构造函数的`prototype`）不停向上查找
@@ -113,3 +112,51 @@ function instanceofFunc(left, right) {
 2. 全局函数非严格模式指向`window`，严格模式是`undefined`
 3. 匿名函数的`this`为创建时的执行上下文
 4. `Function.prototype.call()` `Function.prototype.bind()` `Function.prototype.apply()` 会改变`this`
+
+
+## 执行上下文
+
+1. 全局执行上下文
+2. 函数执行上下文
+3. eval 执行上下文
+
+每种上下文都有三个重要属性
+
+1. 变量对象（VO），包含变量、函数声明和函数的形参，**该属性只能在全局上下文中访问**
+2. 作用域链（JS 采用**词法作用域**，也就是说变量的作用域是在定义时就决定了）
+3. this
+
+
+## 函数和变量提升
+
+在生成执行上下文时，会有两个阶段。第一个阶段是创建的阶段（具体步骤是创建 VO），**JS 解释器会找出需要提升的变量和函数，并且给他们提前在内存中开辟好空间**。
+
+**函数的话会将整个函数存入内存中。**
+
+**变量只声明并且赋值为 undefined。**
+
+1. `var` 会被变量提升，并且被赋值为 `undefined`
+2. `let` 会被变量提升，但不会被赋值，因为临时死区导致了并不能在声明前使用。
+3. `function`（匿名函数除外）会被提升，相同的函数会覆盖上一个函数，并且**函数提升优先于变量提升** （所谓的函数一等公民）
+
+
+## 闭包
+
+概念：函数 A 返回了一个函数 B，并且函数 B 中使用了函数 A 的变量，函数 B 就被称为闭包。
+
+```javascript
+function A() {
+  let a = 1;
+  function B() {
+      console.log(a);
+  }
+  return B;
+}
+A()(); // 1
+```
+
+为什么函数 A 已经弹出调用栈了，为什么函数 B 还能引用到函数 A 中的变量？
+
+因为函数 A 中的 a 变量这时候是存储在堆上的。现在的 JS 引擎可以通过逃逸分析辨别出**哪些变量需要存储在堆上，哪些需要存储在栈上**。
+
+`let` 会创建一个块级作用域。
