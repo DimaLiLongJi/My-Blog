@@ -25,9 +25,9 @@ tags:
 
 ```
 `new Demo` => (没有属性或方法的话)
-           (`Demo`的`__proto__`) => `Demo`的`prototype` (没有属性或方法的话)
-                                       => (`Demo`的`prototype`的`__proto__`或`Demo`的`__proto__`的`__proto__`) => `Object`的`prototype` (没有属性或方法的话)
-                                                                                                                => (`Object`的`prototype`的`__proto__`或`Demo`的`__proto__`的`__proto__`的`__proto__`) => `null`
+           (`new Demo`的`__proto__`) => `Demo`的`prototype` (没有属性或方法的话)
+                                       => (`Demo`的`prototype`的`__proto__`或`new Demo`的`__proto__`的`__proto__`) => `Object`的`prototype` (没有属性或方法的话)
+                                                                                                                => (`Object`的`prototype`的`__proto__`或`new Demo`的`__proto__`的`__proto__`的`__proto__`) => `null`
 ```
 
 对象会沿着 `__proto__` 一直向上查找（其实就是沿着构造函数的`prototype`）不停向上查找
@@ -143,6 +143,8 @@ function instanceofFunc(left, right) {
 ## 闭包
 
 概念：函数 A 返回了一个函数 B，并且函数 B 中使用了函数 A 的变量，函数 B 就被称为闭包。
+
+所以闭包就是能读取其他函数内部变量的函数。
 
 ```javascript
 function A() {

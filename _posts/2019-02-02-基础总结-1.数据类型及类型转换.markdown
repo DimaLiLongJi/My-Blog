@@ -11,7 +11,7 @@ tags:
 
 ## 内置类型
 
-JS 中分为七种内置类型，七种内置类型又分为两大类型：基本类型和对象（Object）。
+JS 中分为七种内置类型，七种内置类型又分为两大类型：基本类型和引用类型。
 
 基本类型有六种： `null`, `undefined`, `number(float)`, `boolean`, `string`, `symbol`
 
@@ -106,7 +106,7 @@ a == b
 
 - a,b 类型不同
   1. a:`null` b:`undefined` => true
-  2. a:`string` || `boolean` b:`number` => 先转换为`number`再比较 **`number` 优先级大于 `string` `boolean`**
+  2. a:`string` || `boolean` b:`number` => 先转换为`number`(`toNumber()`)再比较 **`number` 优先级大于 `string` `boolean`**
   3.  a: `Object` b:`number` => `Object`先转换为基础类型再比较 **对象转换基础类型 => `[Symbol.toPrimitive]()` => `valueOf()` => `toString()` 再比较**
 
 ```javascript
@@ -120,6 +120,6 @@ a == b
 
 ### 比较运算符
 
-如果是对象，就通过 toPrimitive 转换对象
+如果是对象，就通过 `toPrimitive` 转换对象
 
-如果是字符串，就通过 unicode 字符索引来比较
+如果是字符串，就通过 `unicode` 字符索引来比较

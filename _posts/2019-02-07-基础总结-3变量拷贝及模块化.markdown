@@ -1,0 +1,219 @@
+---
+layout:     post
+title:      "基础总结-3.变量拷贝，js模块化"
+subtitle:   "js 基础总结"
+date:       2019-02-07
+author:     "本人"
+header-img: "img/2019/summary/js.jpeg"
+tags:
+    - 基础总结
+---
+
+
+## 变量拷贝
+
+讲变量拷贝之前，要先了解下js的栈（stack）和堆（heap）。
+
+### 栈（stack）和堆（heap）
+
+栈（stack）为自动分配的内存空间，它由系统自动释放
+
+而堆（heap）则是动态分配的内存，大小不定也不会自动释放。
+
+js的数据类型分为基础类型与对象（引用类型）。
+
+基础类型：`string`，`number`，`boolean`，`null`，`undefined`，`symbol`这几种直接按值存放，存放在**栈（stack）**
+
+引用类型则更复杂一点，引用类型是存放在**堆（heap）**中的值。当我们使用一个引用类型的值时，首选从**栈（stack）**中取得该引用类型的指针，再根据指针从**堆（heap）**中取得对应的值。
+
+当拷贝时，基础类型会直接在栈中复制一份相同的值，而引用类型则只会在栈中复制一份相同的指针，指针指向的堆内存中的值则不会变更。
+
+所以基本类型与引用类型最大的区别实际就是传值与传址的区别。
+
+### 浅拷贝
+
+首先可以通过 Object.assign 来解决这个问题。
+
+也可以通过展开运算符（…）来解决。
+
+```javascript
+let a = {
+    age: 1
+};
+let b = Object.assign({}, a);
+let c = {...a};
+a.age = 2;
+console.log(b.age); // 1
+console.log(c.age); // 1
+```
+
+### 深拷贝
+
+使用`JSON`的序列化反序列化来解决这个问题。
+
+```javascript
+let a = {
+    age: 1,
+    jobs: {
+        first: 'FE',
+    },
+};
+let b = JSON.parse(JSON.stringify(a));
+a.jobs.first = 'native';
+console.log(b.jobs.first); // FE
+
+```
+
+局限性：
+
+1. 会忽略 undefined
+2. 会忽略 symbol
+3. 不能序列化函数
+4. 不能解决循环引用的对象
+
+```javascript
+let a = {
+    age: undefined,
+    sex: Symbol('male'),
+    jobs: function() {},
+    name: 'yck'
+}
+let b = JSON.parse(JSON.stringify(a))
+console.log(b) // {name: "yck"}
+```
+
+
+## 模块化
+
+好处：
+
+1. 避免命名冲突(减少命名空间污染)
+2. 更好的分离, 按需加载
+3. 更高复用性
+4. 高可维护性
+
+### CommonJS
+
+Node 应用由模块组成，采用 CommonJS 模块规范。
+
+每个文件就是一个模块，有自己的作用域。
+
+在一个文件里面定义的变量、函数、类，都是私有的，对其他文件不可见。
+
+在服务器端，模块的加载是运行时**同步加载**的。在浏览器端，模块需要提前编译打包处理。
+
+#### 特点
+
+1. 所有代码都运行在模块作用域，不会污染全局作用域。
+2. 模块可以多次加载，但是只会在第一次加载时运行一次，然后运行结果就被缓存了，以后再加载，就直接读取缓存结果。要想让模块再次运行，必须清除缓存。
+3. 模块加载的顺序，按照其在代码中出现的顺序。
+
+暴露模块：`module.exports = value`或`exports.xxx = value`。注意不能对`exports`直接赋值
+
+引入模块：`require(xxx)`
+
+#### CommonJS模块到底是什么
+
+加载某个模块，其实是加载该模块的 `module.exports` 属性。
+
+`require` 命令的基本功能是，读入并执行一个 JavaScript 文件，然后返回该模块的 `exports` 对象。如果没有发现指定模块，会报错。
+
+CommonJS 模块的加载机制是，输入的是被输出的值的**浅拷贝**。
+
+也就是说，**一旦输出一个值，模块内部的变化就影响不到这个值。**
+
+```javascript
+// a.js
+const testObject = {
+  a: {
+    num:1,
+  },
+};
+function change(number) {
+  testObject.a.num = number;
+}
+module.exports = {
+  testObject,
+  change,
+}
+// b.js
+const moduleA = require('./a');
+console.log('a1', moduleA.testObject); // a1 { a: { num: 1 } }
+moduleA.change(2);
+console.log('a2', moduleA.testObject); // a2 { a: { num: 2 } }
+```
+
+### AMD
+
+CommonJS 规范加载模块是同步的，也就是说，只有加载完成，才能执行后面的操作。
+
+AMD是由`RequireJS`**AMD 规范则是非同步加载模块，允许指定回调函数。**
+
+由于 Node.js 主要用于服务器编程，模块文件一般都已经存在于本地硬盘，所以加载起来比较快，不用考虑非同步加载的方式，所以 CommonJS 规范比较适用。
+
+但是，如果是浏览器环境，要从服务器端加载模块，这时就必须采用非同步模式，因此浏览器端一般采用 AMD 规范。
+
+#### 特点
+
+1. AMD 规范则是非同步加载模块
+2. 允许指定回调函数
+
+定义有依赖的模块
+
+```javascript
+define(['./a', './b'], function(a, b) {
+    a.do();
+    b.do();
+});
+define(function(require, exports, module) {
+    var a = require('./a');
+    a.doSomething();
+    var b = require('./b');
+    b.doSomething();
+})
+```
+
+### CMD
+
+CMD 规范专门用于浏览器端，**模块的加载是异步的，模块使用时才会加载执行**。
+
+CMD 规范整合了 CommonJS 和 AMD 规范的特点。
+
+在 Sea.js 中，所有 JavaScript 模块都遵循 CMD 模块定义规范。
+
+### ES6 模块
+
+ES6 模块的设计思想是尽量的静态化，使得编译时就能确定模块的依赖关系，以及输入和输出的变量。
+
+CommonJS 和 AMD 模块，都只能在运行时确定这些东西。
+
+暴露模块：`export xxx`或`export default xxx`。
+
+引入模块：`import {xxx} from ''`或`import xxx from ''`或`import('')`
+
+```javascript
+// a.js
+export const testObject = {
+  a: {
+    num:1,
+  },
+};
+export function change(number) {
+  testObject.a.num = number;
+}
+// b.js
+import { testObject, change } from './b';
+
+console.log('a1', testObject); // a: { num:1 }
+
+change(2);
+
+console.log('a2', testObject); // a: { num:2 }
+```
+
+### ES6 模块与 CommonJS 模块的差异
+
+CommonJS 模块输出的是一个值的浅拷贝，ES6 模块输出的是值的引用。**ES6 模块是动态引用，并且不会缓存值，模块里面的变量绑定其所在的模块。**
+
+CommonJS 模块是运行时加载，ES6 模块是编译时输出接口。
+
