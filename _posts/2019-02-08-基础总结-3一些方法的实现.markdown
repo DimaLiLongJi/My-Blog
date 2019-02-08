@@ -1,0 +1,390 @@
+---
+layout:     post
+title:      "基础总结-3.一些方法的实现"
+subtitle:   "js 基础总结"
+date:       2019-02-08
+author:     "本人"
+header-img: "img/2019/summary/js.jpeg"
+tags:
+    - 基础总结
+---
+
+
+## 防抖与节流
+
+防抖和节流本质是不一样的。
+
+防抖动是将多次执行变为最后一次执行。
+
+节流是将多次执行变成每隔一段时间执行。
+
+### 防抖
+
+```javascript
+// 这个是用来获取当前时间戳的
+function now() {
+  return new Date();
+}
+/**
+ * 防抖函数，返回函数连续调用时，空闲时间必须大于或等于 wait，func 才会执行
+ *
+ * @param  {function} func        回调函数
+ * @param  {number}   wait        表示时间窗口的间隔
+ * @param  {boolean}  immediate   设置为ture时，是否立即调用函数
+ * @return {function}             返回客户调用函数
+ */
+function debounce (func, wait = 50, immediate = true) {
+  let timer, context, args;
+
+  // 延迟执行函数
+  const later = () => setTimeout(() => {
+    // 延迟函数执行完毕，清空缓存的定时器序号
+    timer = null;
+    // 延迟执行的情况下，函数会在延迟函数中执行
+    // 使用到之前缓存的参数和上下文
+    if (!immediate) {
+      func.apply(context, args);
+      context = null;
+      args = null;
+    }
+  }, wait);
+
+  // 这里返回的函数是每次实际调用的函数
+  return function(...params) {
+    // 如果没有创建延迟执行函数（later），就创建一个
+    if (!timer) {
+      timer = later();
+      // 如果是立即执行，调用函数
+      // 否则缓存参数和调用上下文
+      if (immediate) {
+        func.apply(this, params);
+      } else {
+        context = this;
+        args = params;
+      }
+    // 如果已有延迟执行函数（later），调用的时候清除原来的并重新设定一个
+    // 这样做延迟函数会重新计时
+    } else {
+      clearTimeout(timer);
+      timer = later();
+    }
+  }
+}
+```
+
+### 节流
+
+```javascript
+/**
+ * underscore 节流函数，返回函数连续调用时，func 执行频率限定为 次 / wait
+ *
+ * @param  {function}   func      回调函数
+ * @param  {number}     wait      表示时间窗口的间隔
+ * @param  {{leading?: boolean;trailing?: boolean;}}     options   如果想忽略开始函数的的调用，传入{leading: false}。
+ *                                如果想忽略结尾函数的调用，传入{trailing: false}
+ *                                两者不能共存，否则函数不能执行
+ * @return {function}             返回客户调用函数
+ */
+function underscore(func, wait, options) {
+    var context, args, result;
+    var timeout = null;
+    // 之前的时间戳
+    var previous = 0;
+    // 如果 options 没传则设为空对象
+    if (!options) options = {};
+    // 定时器回调函数
+    var later = function() {
+      // 如果设置了 leading，就将 previous 设为 0
+      // 用于下面函数的第一个 if 判断
+      previous = options.leading === false ? 0 : _.now();
+      // 置空一是为了防止内存泄漏，二是为了下面的定时器判断
+      timeout = null;
+      result = func.apply(context, args);
+      if (!timeout) context = args = null;
+    };
+    return function() {
+      // 获得当前时间戳
+      var now = new Date().getTime();
+      // 首次进入前者肯定为 true
+	  // 如果需要第一次不执行函数
+	  // 就将上次时间戳设为当前的
+      // 这样在接下来计算 remaining 的值时会大于0
+      if (!previous && options.leading === false) previous = now;
+      // 计算剩余时间
+      var remaining = wait - (now - previous);
+      context = this;
+      args = arguments;
+      // 如果当前调用已经大于上次调用时间 + wait
+      // 或者用户手动调了时间
+ 	  // 如果设置了 trailing，只会进入这个条件
+	  // 如果没有设置 leading，那么第一次会进入这个条件
+	  // 还有一点，你可能会觉得开启了定时器那么应该不会进入这个 if 条件了
+	  // 其实还是会进入的，因为定时器的延时
+	  // 并不是准确的时间，很可能你设置了2秒
+	  // 但是他需要2.2秒才触发，这时候就会进入这个条件
+      if (remaining <= 0 || remaining > wait) {
+        // 如果存在定时器就清理掉否则会调用二次回调
+        if (timeout) {
+          clearTimeout(timeout);
+          timeout = null;
+        }
+        previous = now;
+        result = func.apply(context, args);
+        if (!timeout) context = args = null;
+      } else if (!timeout && options.trailing !== false) {
+        // 判断是否设置了定时器和 trailing
+	    // 没有的话就开启一个定时器
+        // 并且不能不能同时设置 leading 和 trailing
+        timeout = setTimeout(later, remaining);
+      }
+      return result;
+    };
+  };
+```
+
+
+## call, apply, bind
+
+### call, apply
+
+`call` 接收一个参数列表，第一个参数为`this`，其他参数为函数的参数；
+
+```javascript
+Function.prototype.myCall = function (...argums) {
+  const context = argums[0] || window;
+  // 给 context 添加一个属性
+  context.fn = this;
+  // 将 context 后面的参数取出来
+  const args = [...argums].slice(1);
+  const result = context.fn(...args);
+  // 删除 fn
+  delete context.fn;
+  return result;
+}
+```
+
+`apply` 接收2个参数，第一个参数为`this`，第二个参数为数组为函数的参数；
+
+```javascript
+Function.prototype.myApply = function(context, argums) {
+  // 给 context 添加一个属性
+  context.fn = this;
+  let result;
+  if (argums) result = context.fn(...argums);
+  else result = context.fn();
+  // 删除 fn
+  delete context.fn;
+  return result;
+}
+```
+
+### bind
+
+`bind` 接收多个参数，第一个是 `this`，其他为函数的参数。
+
+`bind` 和其他两个方法作用也是一致的，只是该方法会返回已经改变了 `this` 的一个函数。并且我们可以通过 `bind` 实现柯里化。
+
+```javascript
+Function.prototype.myBind = function (...argums) {
+  if (typeof this !== 'function') throw new TypeError('Error');
+  const context = argums[0] || window;
+  const fn = this;
+  const args = [...argums].slice(1);
+  // 返回一个函数
+  return function F() {
+    return fn.apply(context, ...args);
+  }
+}
+```
+
+
+## Promise
+
+`Promise` 本质上是个状态机，初始是 `pending` 状态，可以通过函数 `resolve()` 和 `reject()` ，将状态转变为 `resolved` 或者 `rejected` 状态，状态一旦改变就不能再次变化。
+
+`then()` 函数会返回一个 `pending` 状态的 `Promise` 实例，并且该返回值是一个新的实例而不是之前的实例。
+
+```typescript
+// 三种状态
+const PENDING = "pending";
+const RESOLVED = "resolved";
+const REJECTED = "rejected";
+
+type PromiseState = 'pending' | 'resolved' | 'rejected';
+type PromiseResolve = (value?: any) => void;
+type PromiseReject = (reason?: any) => void;
+type PromiseThen = (onResolved?: PromiseResolve, onRejected?: PromiseReject) => MyPromise;
+type PromiseFn = (resolve?: PromiseResolve, reject?: PromiseReject) => any;
+
+class MyPromise {
+  value: any;
+  currentState: PromiseState = PENDING;
+  // 用于保存 then 中的回调，只有当 promise
+  // 状态为 pending 时才会缓存，并且每个实例至多缓存一个
+  resolvedCallbacks: PromiseResolve[] = [];
+  rejectedCallbacks: PromiseReject[] = [];
+
+  constructor(fn: PromiseFn) {
+    try {
+      fn(this.resolve, this.reject);
+    } catch (e) {
+      this.reject(e);
+    }
+  }
+
+  resolve: PromiseResolve = (value?: any) => {
+    if (value instanceof MyPromise) {
+      // 如果 value 是个 Promise，递归执行
+      return value.then(this.resolve, this.reject);
+    }
+    // 异步执行，保证执行顺序
+    setTimeout(() => {
+      if (this.currentState === PENDING) {
+        this.currentState = RESOLVED;
+        this.value = value;
+        this.resolvedCallbacks.forEach(cb => cb());
+      }
+    });
+  }
+
+  reject: PromiseReject = (reason?: any) => {
+    // 异步执行，保证执行顺序
+    setTimeout(() => {
+      if (this.currentState === PENDING) {
+        this.currentState = REJECTED;
+        this.value = reason;
+        this.rejectedCallbacks.forEach(cb => cb());
+      }
+    })
+  }
+
+  then: PromiseThen = (onResolved?: PromiseResolve, onRejected?: PromiseReject) => {
+    const that = this;
+    // 规范 2.2.7，then 必须返回一个新的 promise
+    let newMyPromise: MyPromise;
+    // 规范 2.2.onResolved 和 onRejected 都为可选参数
+    // 如果类型不是函数需要忽略，同时也实现了透传
+    // Promise.resolve(4).then().then((value) => console.log(value))
+    onResolved = typeof onResolved === 'function' ? onResolved : v => v;
+    onRejected = typeof onRejected === 'function' ? onRejected : r => r;
+  
+    if (this.currentState === RESOLVED) {
+      newMyPromise = new MyPromise(function (resolve, reject) {
+        // 规范 2.2.4，保证 onFulfilled，onRjected 异步执行
+        // 所以用了 setTimeout 包裹下
+        setTimeout(function () {
+          try {
+            var x = onResolved(this.value);
+            resolutionProcedure(newMyPromise, x, resolve, reject);
+          } catch (reason) {
+            reject(reason);
+          }
+        });
+      });
+      return newMyPromise;
+    }
+  
+    if (this.currentState === REJECTED) {
+      newMyPromise =  new MyPromise(function (resolve, reject) {
+        setTimeout(function () {
+          // 异步执行onRejected
+          try {
+            var x = onRejected(this.value);
+            resolutionProcedure(newMyPromise, x, resolve, reject);
+          } catch (reason) {
+            reject(reason);
+          }
+        });
+      });
+      return newMyPromise;
+    }
+  
+    if (this.currentState === PENDING) {
+      newMyPromise = new MyPromise(function (resolve, reject) {
+        that.resolvedCallbacks.push(function () {
+          // 考虑到可能会有报错，所以使用 try/catch 包裹
+          try {
+            var x = onResolved(that.value);
+            resolutionProcedure(newMyPromise, x, resolve, reject);
+          } catch (r) {
+            reject(r);
+          }
+        });
+  
+        that.rejectedCallbacks.push(function () {
+          try {
+            var x = onRejected(that.value);
+            resolutionProcedure(newMyPromise, x, resolve, reject);
+          } catch (r) {
+            reject(r);
+          }
+        });
+      });
+      return newMyPromise;
+    }
+  }
+
+}
+
+// 规范 2.3
+function resolutionProcedure(promise2: MyPromise, x: any, resolve: PromiseResolve, reject: PromiseReject) {
+  // 规范 2.3.1，x 不能和 promise2 相同，避免循环引用
+  if (promise2 === x) {
+    return reject(new TypeError("Error"));
+  }
+  // 规范 2.3.2
+  // 如果 x 为 Promise，状态为 pending 需要继续等待否则执行
+  if (x instanceof MyPromise) {
+    if (x.currentState === PENDING) {
+      x.then(function (value: any) {
+        // 再次调用该函数是为了确认 x resolve 的
+        // 参数是什么类型，如果是基本类型就再次 resolve
+        // 把值传给下个 then
+        resolutionProcedure(promise2, value, resolve, reject);
+      }, reject);
+    } else {
+      x.then(resolve, reject);
+    }
+    return;
+  }
+  // 规范 2.3.3.3.3
+  // reject 或者 resolve 其中一个执行过得话，忽略其他的
+  let called = false;
+  // 规范 2.3.3，判断 x 是否为对象或者函数
+  if (x !== null && (typeof x === "object" || typeof x === "function")) {
+    // 规范 2.3.3.2，如果不能取出 then，就 reject
+    try {
+      // 规范 2.3.3.1
+      let then = x.then;
+      // 如果 then 是函数，调用 x.then
+      if (typeof then === "function") {
+        // 规范 2.3.3.3
+        then.call(
+          x,
+          y => {
+            if (called) return;
+            called = true;
+            // 规范 2.3.3.3.1
+            resolutionProcedure(promise2, y, resolve, reject);
+          },
+          e => {
+            if (called) return;
+            called = true;
+            reject(e);
+          }
+        );
+      } else {
+        // 规范 2.3.3.4
+        resolve(x);
+      }
+    } catch (e) {
+      if (called) return;
+      called = true;
+      reject(e);
+    }
+  } else {
+    // 规范 2.3.4，x 为基本类型
+    resolve(x);
+  }
+}
+```
