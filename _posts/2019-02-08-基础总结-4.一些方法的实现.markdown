@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "基础总结-3.一些方法的实现"
+title:      "基础总结-4.一些方法的实现"
 subtitle:   "js 基础总结"
 date:       2019-02-08
 author:     "本人"
