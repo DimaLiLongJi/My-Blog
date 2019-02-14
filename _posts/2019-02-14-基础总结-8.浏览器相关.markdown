@@ -1,0 +1,163 @@
+---
+layout:     post
+title:      "基础总结-8.浏览器相关"
+subtitle:   "js 基础总结"
+date:       2019-02-14
+author:     "本人"
+header-img: "img/2019/summary/js.jpeg"
+tags:
+    - 基础总结
+---
+
+
+## 浏览器事件模型
+
+### 事件捕获 => 事件到达 => 事件冒泡
+
+- `window` 往事件触发处传播，遇到注册的捕获事件会触发
+- 传播到事件触发处时触发注册的事件
+- 从事件触发处往 `window` 传播，遇到注册的冒泡事件会触发
+
+事件触发一般来说会按照上面的顺序进行，但是也有特例，如果给一个**目标子节点同时注册冒泡和捕获事件，事件触发会按照注册的顺序执行**，而父节点则会按照先捕获后触发。
+
+```javascript
+// 点击 #father , 父捕获 => 父冒泡
+const node = document.getElementById('father');
+node.addEventListener(
+  'click',
+  event => {
+    console.log('父冒泡');
+  },
+  false
+);
+node.addEventListener(
+  'click',
+  event => {
+    console.log('父捕获 ');
+  },
+  true
+);
+
+// 点击 #child , 父捕获 => 子冒泡 => 子捕获 => 父冒泡
+const node2 = document.getElementById('child')
+node2.addEventListener(
+  'click',
+  event => {
+    console.log('子冒泡');
+  },
+  false
+);
+node2.addEventListener(
+  'click',
+  event => {
+    console.log('子捕获 ');
+  },
+  true
+);
+```
+
+### 事件代理
+
+如果一个节点中的子节点是动态生成的，那么子节点需要注册事件的话应该注册在父节点上
+
+事件代理的方式相对于直接给目标注册事件来说，有以下优点
+
+- 节省内存
+- 不需要给子节点注销事件
+
+
+## 跨域
+
+因为浏览器出于安全考虑，有同源策略。也就是说，如果协议、域名或者端口有一个不同就是跨域，Ajax 请求会失败。
+
+### JSONP
+
+JSONP 的原理很简单，就是利用 `<script>` 标签没有跨域限制的漏洞。
+
+通过 `<script>`标签指向一个需要访问的地址并提供一个回调函数来接收数据当需要通讯时。
+
+```html
+<script src="http://domain/api?param1=a&param2=b&callback=jsonp"></script>
+<script>
+    function jsonp(data) { console.log(data) }
+</script>
+```
+
+```javascript
+
+function jsonp(url, jsonpCallback, success) {
+  let script = document.createElement('script');
+  script.src = url;
+  script.async = true;
+  script.type = 'text/javascript';
+  window[jsonpCallback] = function(data) {
+    success && success(data);
+  }
+  document.body.appendChild(script);
+}
+jsonp('http://xxx', 'callback', function(value) {
+  console.log(value);
+});
+```
+
+### CORS
+
+服务端设置 Access-Control-Allow-Origin 就可以开启 CORS。 该属性表示哪些域名可以访问资源，如果设置通配符则表示所有网站都可以访问资源。
+
+### document.domain
+
+该方式只能用于二级域名相同的情况下，比如 `a.test.com` 和 `b.test.com` 适用于该方式。
+
+只需要给页面添加 `document.domain = 'test.com'` 表示二级域名都相同就可以实现跨域
+
+
+## 渲染机制
+
+### 渲染
+
+浏览器的渲染机制一般分为以下几个步骤
+
+1. 处理 HTML 并构建 DOM 树。
+2. 处理 CSS 构建 CSSOM 树。
+3. 将 DOM 与 CSSOM 合并成一个渲染树。
+4. 根据渲染树来布局，计算每个节点的位置。
+5. 调用 GPU 绘制，合成图层，显示在屏幕上。
+
+在构建 CSSOM 树时，会阻塞渲染，直至 CSSOM 树构建完成。
+
+并且构建 CSSOM 树是一个十分消耗性能的过程，所以应该尽量保证层级扁平，减少过度层叠，越是具体的 CSS 选择器，执行速度越慢。
+
+当 HTML 解析到 script 标签时，会暂停构建 DOM，完成后才会从暂停的地方重新开始。
+
+也就是说，如果你想首屏渲染的越快，就越不应该在首屏就加载 JS 文件。
+
+并且 CSS 也会影响 JS 的执行，只有当解析完样式表才会执行 JS，所以也可以认为这种情况下，CSS 也会暂停构建 DOM。
+
+**`script` 标签不一定会阻塞渲染**
+
+- `<script defer="defer">` **异步加载脚本**，但是执行要在**所有元素解析完成**之后完成。
+- `<script async="async">` **异步加载脚本**，加载完立即执行。
+
+### `Load` 和 `DOMContentLoaded` 区别
+
+`Load` 事件触发代表页面中的 `DOM，CSS，JS，图片` 已经全部加载完毕。
+
+`DOMContentLoaded` 事件触发代表初始的 `HTML` 被完全加载和解析，不需要等待 `CSS，JS，图片` 加载。
+
+### 图层
+
+一般来说，可以把普通文档流看成一个图层。特定的属性可以生成一个新的图层。不同的图层渲染互不影响，所以对于某些频繁需要渲染的建议单独生成一个新图层，提高性能。但也不能生成过多的图层，会引起反作用。
+
+通过以下几个常用属性可以生成新图层
+
+- 3D 变换：`translate3d、translateZ`
+- `will-change`
+- `video、iframe` 标签
+- 通过动画实现的 `opacity` 动画转换
+- `position: fixed`
+
+### 重绘（Repaint）和回流（Reflow）
+
+重绘是当节点需要更改外观而不会影响布局的，比如改变 color 就叫称为重绘。
+
+回流是布局或者几何属性需要改变就称为回流。
