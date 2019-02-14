@@ -1,0 +1,100 @@
+---
+layout:     post
+title:      "基础总结-7.前端安全"
+subtitle:   "js 基础总结"
+date:       2019-02-14
+author:     "本人"
+header-img: "img/2019/summary/js.jpeg"
+tags:
+    - 基础总结
+---
+
+
+## 前端安全
+
+### XSS 跨站脚本攻击
+
+跨站脚本攻击（英语：Cross-site scripting，通常简称为：XSS）是一种网站应用程式的安全漏洞攻击，是代码注入的一种。
+
+它允许恶意使用者将程式码注入到网页上，其他使用者在观看网页时就会受到影响。
+
+这类攻击通常包含了 HTML 以及使用者端脚本语言。
+
+**XSS 分为三种：反射型（url），存储型（存在数据库）和 DOM-based**
+
+#### 如何攻击
+
+XSS 通过修改 HTML 节点或者执行 JS 代码来攻击网站。一般通过url获取参数并直接用于js逻辑时会被通过 `<script>alert('XSS')</script>` 方式攻击。
+
+- 在 `HTML` 中内嵌的文本中，恶意内容以 `script` 标签形成注入。
+- 在内联的 JavaScript 中，拼接的数据突破了原本的限制（字符串，变量，方法名等）。
+- 在标签属性中，恶意内容包含引号，从而突破属性值的限制，注入其他属性或者标签。
+- 在标签的 `href、src` 等属性中，包含 `javascript:` 等可执行代码。
+- 在 `onload、onerror、onclick` 等事件中，注入不受控制代码。
+- 在 `style` 属性和标签中，包含类似 `background-image:url("javascript:...");` 的代码（新版本浏览器已经可以防范）。
+- 在 `style` 属性和标签中，包含类似 `expression(...)` 的 CSS 表达式代码（新版本浏览器已经可以防范）。
+
+#### 如何防御
+
+转义输入输出的内容
+
+```typescript
+function escape(str: string): string {
+  let strPrivate = str;
+  strPrivate = strPrivate.replace(/&/g, '&amp;');
+  strPrivate = strPrivate.replace(/</g, '&lt;');
+  strPrivate = strPrivate.replace(/>/g, '&gt;');
+  strPrivate = strPrivate.replace(/"/g, '&quto;');
+  strPrivate = strPrivate.replace(/'/g, '&#39;');
+  strPrivate = strPrivate.replace(/`/g, '&#96;');
+  strPrivate = strPrivate.replace(/\//g, '&#x2F;');
+  return strPrivate;
+}
+```
+
+### CSRF 跨站请求伪造
+
+跨站请求伪造（英语：Cross-site request forgery），也被称为 one-click attack 或者 session riding，通常缩写为 CSRF 或者 XSRF， 是一种挟制用户在当前已登录的 Web 应用程序上执行非本意的操作的攻击方法。
+
+跟 XSS 相比，XSS 利用的是用户对指定网站的信任，CSRF 利用的是网站对用户网页浏览器的信任。
+
+简单点说，CSRF 就是利用用户的登录态发起恶意请求。
+
+#### 如何攻击
+
+假设网站中有一个通过 Get 请求提交用户评论的接口，那么攻击者就可以在钓鱼网站中加入一个图片，图片的地址就是评论接口
+
+```html
+<img src="http://www.domain.com/xxx?comment='attack'" />
+```
+
+如果接口是 Post 提交的，就相对麻烦点，需要用表单来提交接口
+
+```html
+<form action="http://www.domain.com/xxx" id="CSRF" method="post">
+  <input name="comment" value="attack" type="hidden" />
+</form>
+```
+
+一个典型的CSRF攻击有着如下的流程：
+
+- 受害者登录a.com，并保留了登录凭证（Cookie）。
+- 攻击者引诱受害者访问了b.com。
+- b.com 向 a.com 发送了一个请求：a.com/act=xx。浏览器会…
+- a.com接收到请求后，对请求进行验证，并确认是受害者的凭证，误以为是受害者自己发送的请求。
+- a.com以受害者的名义执行了act=xx。
+- 攻击完成，攻击者在受害者不知情的情况下，冒充受害者，让a.com执行了自己定义的操作。
+
+#### 如何防御
+
+- Get 请求不对数据进行修改
+- 阻止不明外域的访问：不让第三方网站访问到用户 `Cookie`
+  - 同源检测
+    1. 请求头的 `Origin Header， Referer Header`
+  - `Samesite Cookie`
+- 阻止不明外域的访问，阻止第三方网站请求接口
+- 请求时附带验证信息，比如验证码或者 `token`
+  - `CSRF Token`
+  - 双重Cookie验证
+
+
