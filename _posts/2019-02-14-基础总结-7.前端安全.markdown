@@ -33,6 +33,7 @@ XSS 通过修改 HTML 节点或者执行 JS 代码来攻击网站。一般通过
 - 在 `onload、onerror、onclick` 等事件中，注入不受控制代码。
 - 在 `style` 属性和标签中，包含类似 `background-image:url("javascript:...");` 的代码（新版本浏览器已经可以防范）。
 - 在 `style` 属性和标签中，包含类似 `expression(...)` 的 CSS 表达式代码（新版本浏览器已经可以防范）。
+- 用户打开带有恶意代码的 `URL` 时，网站服务端将恶意代码从 `URL` 中取出，拼接在 `HTML` 中返回给浏览器。
 
 #### 如何防御
 
@@ -51,6 +52,16 @@ function escape(str: string): string {
   return strPrivate;
 }
 ```
+
+CSP
+
+我们可以通过 CSP 来尽量减少 XSS 攻击。CSP 本质上也是建立白名单，规定了浏览器只能够执行特定来源的代码。
+
+通常可以通过 HTTP Header 中的 Content-Security-Policy 来开启 CSP
+
+只允许加载本站资源 `Content-Security-Policy: default-src ‘self’`
+只允许加载 HTTPS 协议图片 `Content-Security-Policy: img-src https://*`
+允许加载任何来源框架 `Content-Security-Policy: child-src 'none'`
 
 ### CSRF 跨站请求伪造
 
@@ -88,11 +99,8 @@ function escape(str: string): string {
 #### 如何防御
 
 - Get 请求不对数据进行修改
-- 阻止不明外域的访问：不让第三方网站访问到用户 `Cookie`
-  - 同源检测
-    1. 请求头的 `Origin Header， Referer Header`
-  - `Samesite Cookie`
-- 阻止不明外域的访问，阻止第三方网站请求接口
+- 阻止不明外域的访问：不让第三方网站访问到用户 `Cookie`: `Samesite Cookie`
+- 阻止不明外域的访问，阻止第三方网站请求接口: 同源检测，请求头的 `Origin Header， Referer Header`
 - 请求时附带验证信息，比如验证码或者 `token`
   - `CSRF Token`
   - 双重Cookie验证
