@@ -135,6 +135,22 @@ function instanceofFunc(left, right) {
 
 ## 函数和变量提升
 
+函数声明
+
+```javascript
+function funDeclaration(type){
+    return type==="Declaration";
+}
+```
+
+函数表达式
+
+```javascript
+var funExpression = function(type){
+  return type==="Expression";
+}
+```
+
 在生成执行上下文时，会有两个阶段。第一个阶段是创建的阶段（具体步骤是创建 VO），**JS 解释器会找出需要提升的变量和函数，并且给他们提前在内存中开辟好空间**。
 
 **函数的话会将整个函数存入内存中。**
