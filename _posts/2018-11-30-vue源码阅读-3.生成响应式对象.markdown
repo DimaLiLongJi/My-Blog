@@ -429,6 +429,6 @@ export function def (obj: Object, key: string, val: any, enumerable?: boolean) {
 3. 并且通过递归 `this.walk(value)`  调用 `defineReactive`
 4. 为 `data` 的每个属性都加上 `setter` `getter`，其中 `setter` 被触发会为新属性使用 `observe(value)`
 
-！！**Vue 没有为 props 的第一层子属性定义 `__ob__`** 神秘
+！！**Vue 没有为 props 自己及属性定义 `__ob__`，而 data 定义了为自己定义了`__ob__`** 神秘
 
 
