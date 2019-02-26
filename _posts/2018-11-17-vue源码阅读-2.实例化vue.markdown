@@ -2,7 +2,7 @@
 layout:     post
 title:      "vue源码阅读-2.实例化vue"
 subtitle:   "vue源码"
-date:       2019-02-23
+date:       2018-11-17
 author:     "本人"
 header-img: "img/2018/vue/vue.png"
 tags:

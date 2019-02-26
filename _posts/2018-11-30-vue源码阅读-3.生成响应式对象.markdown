@@ -1,0 +1,434 @@
+---
+layout:     post
+title:      "vue源码阅读-3.生成响应式对象"
+subtitle:   "vue源码"
+date:       2018-11-30
+author:     "本人"
+header-img: "img/2018/vue/vue.png"
+tags:
+    - vue源码阅读
+---
+
+
+## 状态初始化
+
+Vue 双向绑定的核心就是 `Object.defineProperty`。
+
+Object.defineProperty 方法允许用户在对象属性上定义 `setter` 和 `getter`。 当对象的属性被获取时，将触发 `getter`，而属性被修改时，则会触发 `setter`。
+
+```javascript
+Object.defineProperty(obj, prop, descriptor);
+```
+
+Vue 会在初始化 `_init` 的时候初始化状态 `initState(vm)`
+
+> src/core/instance/init.js
+
+```javascript
+vm._self = vm
+initLifecycle(vm)
+initEvents(vm)
+initRender(vm)
+callHook(vm, 'beforeCreate')
+initInjections(vm) // resolve injections before data/props
+initState(vm)
+initProvide(vm) // resolve provide after data/props
+callHook(vm, 'created')
+```
+
+> src/core/instance/state.js
+
+```typescript
+export function initState (vm: Component) {
+  vm._watchers = []
+  const opts = vm.$options
+  if (opts.props) initProps(vm, opts.props)
+  if (opts.methods) initMethods(vm, opts.methods)
+  if (opts.data) {
+    initData(vm)
+  } else {
+    observe(vm._data = {}, true /* asRootData */)
+  }
+  if (opts.computed) initComputed(vm, opts.computed)
+  if (opts.watch && opts.watch !== nativeWatch) {
+    initWatch(vm, opts.watch)
+  }
+}
+```
+
+可以看到当初始化状态时，Vue 会按照 `props`，`methods`，`data`，`computed`，`watch` 的顺序依次初始化。
+
+这里分析 `props` 和 `data`，对于其它属性的初始化再详细分析。
+
+
+## initProps
+
+> src/core/instance/state.js
+
+```typescript
+function initProps (vm: Component, propsOptions: Object) {
+  const propsData = vm.$options.propsData || {}
+  const props = vm._props = {}
+  // cache prop keys so that future props updates can iterate using Array
+  // instead of dynamic object key enumeration.
+  const keys = vm.$options._propKeys = []
+  const isRoot = !vm.$parent
+  // root instance props should be converted
+  if (!isRoot) {
+    toggleObserving(false)
+  }
+  for (const key in propsOptions) {
+    keys.push(key)
+    const value = validateProp(key, propsOptions, propsData, vm)
+    /* istanbul ignore else */
+    if (process.env.NODE_ENV !== 'production') {
+      const hyphenatedKey = hyphenate(key)
+      if (isReservedAttribute(hyphenatedKey) ||
+          config.isReservedAttr(hyphenatedKey)) {
+        warn(
+          `"${hyphenatedKey}" is a reserved attribute and cannot be used as component prop.`,
+          vm
+        )
+      }
+      defineReactive(props, key, value, () => {
+        if (!isRoot && !isUpdatingChildComponent) {
+          warn(
+            `Avoid mutating a prop directly since the value will be ` +
+            `overwritten whenever the parent component re-renders. ` +
+            `Instead, use a data or computed property based on the prop's ` +
+            `value. Prop being mutated: "${key}"`,
+            vm
+          )
+        }
+      })
+    } else {
+      defineReactive(props, key, value)
+    }
+    // static props are already proxied on the component's prototype
+    // during Vue.extend(). We only need to proxy props defined at
+    // instantiation here.
+    if (!(key in vm)) {
+      proxy(vm, `_props`, key)
+    }
+  }
+  toggleObserving(true)
+}
+```
+
+可以看到，很简单
+
+1. 如果不存在 `props`，就初始化一个 `{}`
+2. `validateProp` 检验 `props` 是否一样
+3. 调用 `defineReactive` 将 `props` 装换成一个响应式对象
+4. 调用 `proxy` 将 `_props` 上的 key 代理到实例上（把 `vm._props.xxx` 的访问代理到 `vm.xxx` 上，）
+
+
+## initData
+
+> src/core/instance/state.js
+
+```typescript
+function initData (vm: Component) {
+  let data = vm.$options.data
+  data = vm._data = typeof data === 'function'
+    ? getData(data, vm)
+    : data || {}
+  if (!isPlainObject(data)) {
+    data = {}
+    process.env.NODE_ENV !== 'production' && warn(
+      'data functions should return an object:\n' +
+      'https://vuejs.org/v2/guide/components.html#data-Must-Be-a-Function',
+      vm
+    )
+  }
+  // proxy data on instance
+  const keys = Object.keys(data)
+  const props = vm.$options.props
+  const methods = vm.$options.methods
+  let i = keys.length
+  while (i--) {
+    const key = keys[i]
+    if (process.env.NODE_ENV !== 'production') {
+      if (methods && hasOwn(methods, key)) {
+        warn(
+          `Method "${key}" has already been defined as a data property.`,
+          vm
+        )
+      }
+    }
+    if (props && hasOwn(props, key)) {
+      process.env.NODE_ENV !== 'production' && warn(
+        `The data property "${key}" is already declared as a prop. ` +
+        `Use prop default value instead.`,
+        vm
+      )
+    } else if (!isReserved(key)) {
+      proxy(vm, `_data`, key)
+    }
+  }
+  // observe data
+  observe(data, true /* asRootData */)
+}
+```
+
+同理跟初始化 `props` 的时候一样
+
+1. 遍历 `data` 的 key，检查 `method` 里面是否有相同的名字
+2. 调用 `proxy` 将 `_data` 上的 key 代理到实例上（把 `vm._data.xxx` 的访问代理到 `vm.xxx` 上，）
+3. `observe` 转化 `data` 为可观察的对象
+
+
+## proxy
+
+> src/core/instance/state.js
+
+```typescript
+export function proxy (target: Object, sourceKey: string, key: string) {
+  sharedPropertyDefinition.get = function proxyGetter () {
+    return this[sourceKey][key]
+  }
+  sharedPropertyDefinition.set = function proxySetter (val) {
+    this[sourceKey][key] = val
+  }
+  Object.defineProperty(target, key, sharedPropertyDefinition)
+}
+```
+代理也同样简单，就是将 `vm[key]` 通过定义 `Object.defineProperty` 的 getter 和 setter 把读写代理到 `vm[sourceKey][key]` 上去。
+
+
+## defineReactive
+
+`defineReactive` 和 `observe` 就复杂点，定义到 observer 文件里。
+
+> src/core/observer/index.js
+
+```typescript
+/**
+ * Define a reactive property on an Object.
+ */
+export function defineReactive (
+  obj: Object,
+  key: string,
+  val: any,
+  customSetter?: ?Function,
+  shallow?: boolean
+) {
+  const dep = new Dep()
+
+  // 查找某个属性
+  const property = Object.getOwnPropertyDescriptor(obj, key)
+  if (property && property.configurable === false) {
+    return
+  }
+
+  // 获取该属性的 setter 和 getter
+  // cater for pre-defined getter/setters
+  const getter = property && property.get
+  const setter = property && property.set
+  if ((!getter || setter) && arguments.length === 2) {
+    val = obj[key]
+  }
+
+  // observe(val)
+  let childOb = !shallow && observe(val)
+  Object.defineProperty(obj, key, {
+    enumerable: true,
+    configurable: true,
+    get: function reactiveGetter () {
+      const value = getter ? getter.call(obj) : val
+      if (Dep.target) {
+        // 依赖收集
+        dep.depend()
+        if (childOb) {
+          childOb.dep.depend()
+          if (Array.isArray(value)) {
+            dependArray(value)
+          }
+        }
+      }
+      return value
+    },
+    set: function reactiveSetter (newVal) {
+      const value = getter ? getter.call(obj) : val
+      /* eslint-disable no-self-compare */
+      if (newVal === value || (newVal !== newVal && value !== value)) {
+        return
+      }
+      /* eslint-enable no-self-compare */
+      if (process.env.NODE_ENV !== 'production' && customSetter) {
+        customSetter()
+      }
+      // #7981: for accessor properties without setter
+      if (getter && !setter) return
+      if (setter) {
+        setter.call(obj, newVal)
+      } else {
+        val = newVal
+      }
+      childOb = !shallow && observe(newVal)
+      // 通知
+      dep.notify()
+    }
+  })
+}
+```
+
+1. `Object.getOwnPropertyDescriptor(obj, key)` 查找某个属性的属性描述符
+2. `observe(val)` 订阅 val
+3. `Object.defineProperty(obj, key, ` 定义响应式的 getter 和 setter，并调用被代理的原属性的 getter 和 setter
+
+`defineReactive` 函数最开始初始化 `Dep` 对象的实例，接着拿到 obj 的属性描述符，然后对子对象递归调用 `observe` 方法，这样就保证了无论 obj 的结构多复杂，它的所有子属性也能变成响应式的对象，这样我们访问或修改 obj 中一个嵌套较深的属性，也能触发 `getter` 和 `setter`。
+
+最后利用 `Object.defineProperty` 去给 obj 的属性 key 添加 `getter` 和 `setter`。而关于 `getter` 和 `setter` 的具体实现，我们会在之后介绍
+
+### observe
+
+> src/core/observer/index.js
+
+```typescript
+/**
+ * Attempt to create an observer instance for a value,
+ * returns the new observer if successfully observed,
+ * or the existing observer if the value already has one.
+ */
+export function observe (value: any, asRootData: ?boolean): Observer | void {
+  if (!isObject(value) || value instanceof VNode) {
+    return
+  }
+  let ob: Observer | void
+  if (hasOwn(value, '__ob__') && value.__ob__ instanceof Observer) {
+    ob = value.__ob__
+  } else if (
+    shouldObserve &&
+    !isServerRendering() &&
+    (Array.isArray(value) || isPlainObject(value)) &&
+    Object.isExtensible(value) &&
+    !value._isVue
+  ) {
+    ob = new Observer(value)
+  }
+  if (asRootData && ob) {
+    ob.vmCount++
+  }
+  return ob
+}
+```
+
+1. `observe` 接收2个参数 `value: any, asRootData: ?boolean` `value` 为 `_props` 或者 `data`
+2. `__ob__` 为属性上的 `Observer` 实例，如果存在直接返回
+
+### Observer
+
+重点来了。
+
+`Observer` 为观察者的主要逻辑，
+
+> src/core/observer/index.js
+
+```typescript
+/**
+ * Observer class that is attached to each observed
+ * object. Once attached, the observer converts the target
+ * object's property keys into getter/setters that
+ * collect dependencies and dispatch updates.
+ */
+export class Observer {
+  value: any;
+  dep: Dep;
+  vmCount: number; // number of vms that have this object as root $data
+
+  constructor (value: any) {
+    this.value = value
+    this.dep = new Dep()
+    this.vmCount = 0
+    // 关键 
+    def(value, '__ob__', this)
+    if (Array.isArray(value)) {
+      if (hasProto) {
+        protoAugment(value, arrayMethods)
+      } else {
+        copyAugment(value, arrayMethods, arrayKeys)
+      }
+      this.observeArray(value)
+    } else {
+      this.walk(value)
+    }
+  }
+
+  /**
+   * Walk through all properties and convert them into
+   * getter/setters. This method should only be called when
+   * value type is Object.
+   */
+  walk (obj: Object) {
+    const keys = Object.keys(obj)
+    for (let i = 0; i < keys.length; i++) {
+      defineReactive(obj, keys[i])
+    }
+  }
+
+  /**
+   * Observe a list of Array items.
+   */
+  observeArray (items: Array<any>) {
+    for (let i = 0, l = items.length; i < l; i++) {
+      observe(items[i])
+    }
+  }
+}
+```
+
+1. `this.dep = new Dep()` 生成一个 **依赖实例** 这个我们后面再讲
+2. 判断是数组还是对象，如果是对象则递归对对象的每个key递归使用 `defineReactive`
+3. 如果是数组，则对数组的每项使用 `observe`
+
+首先实例化 `Dep` 对象，这块稍后会介绍，接着通过执行 `def` 函数把自身实例添加到数据对象 `value` 的 `__ob__` 属性上
+
+`def` 函数封装了 `Object.defineProperty` 为 属性下面添加了个属性，所以打印 `this.xxx` 的时候才会有 `__ob__`
+
+> src/core/util/lang.js
+
+```typescript
+def(value, '__ob__', this)
+
+/**
+ * Define a property.
+ */
+export function def (obj: Object, key: string, val: any, enumerable?: boolean) {
+  Object.defineProperty(obj, key, {
+    value: val,
+    enumerable: !!enumerable,
+    writable: true,
+    configurable: true
+  })
+}
+```
+
+递归使用 `defineReactive` 为 data 和 props 里面的每个属性及子属性都加上一个 `getter` 和 `setter`
+
+
+## 总结
+
+通过实例上的 `_init` 方法初始化所有的 `props` 与 `data`
+
+先初始化 watcher数组 `vm._watchers = []`
+
+- initProps
+
+1. init时间 `props` 在 `data` 之前
+2. init `props` 接着会使用定义的 `props` 属性遍历，时会先判断下 `props` 是否被 `method` 里面的方法名占用
+3. `defineReactive(props, key, value)` 先生成一个 `Dep` 实例
+4. `observe(value)` 为属性生成一个 `Observer(value)` 实例，并添加到属性 `value` 的 `__ob__` 上
+5. 并且通过递归 `this.walk(value)`  调用 `defineReactive`
+6. 为 `props` 的每个属性都加上 `setter` `getter`，其中 `setter` 被触发会为新属性使用 `observe(value)`
+
+- initData
+
+1. 根据 `data` 的 key 遍历，然后通过 `proxy(vm, `_data`, key)` 把 `vm[key]` 的访问与修改代理到 `vm._data[key]` 
+2. `observe(data, true /* asRootData */)` 为属性生成一个 `Observer(data)` 实例，并添加到属性 `data` 的 `__ob__` 上
+3. 并且通过递归 `this.walk(value)`  调用 `defineReactive`
+4. 为 `data` 的每个属性都加上 `setter` `getter`，其中 `setter` 被触发会为新属性使用 `observe(value)`
+
+！！**Vue 没有为 props 的第一层子属性定义 `__ob__`** 神秘
+
+
