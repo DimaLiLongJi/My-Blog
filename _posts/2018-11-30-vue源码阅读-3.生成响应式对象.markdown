@@ -10,7 +10,7 @@ tags:
 ---
 
 
-## 状态初始化
+## 响应式对象
 
 Vue 双向绑定的核心就是 `Object.defineProperty`。
 
@@ -60,8 +60,7 @@ export function initState (vm: Component) {
 
 这里分析 `props` 和 `data`，对于其它属性的初始化再详细分析。
 
-
-## initProps
+### initProps
 
 > src/core/instance/state.js
 
@@ -122,8 +121,7 @@ function initProps (vm: Component, propsOptions: Object) {
 3. 调用 `defineReactive` 将 `props` 装换成一个响应式对象
 4. 调用 `proxy` 将 `_props` 上的 key 代理到实例上（把 `vm._props.xxx` 的访问代理到 `vm.xxx` 上，）
 
-
-## initData
+### initData
 
 > src/core/instance/state.js
 
@@ -177,8 +175,7 @@ function initData (vm: Component) {
 2. 调用 `proxy` 将 `_data` 上的 key 代理到实例上（把 `vm._data.xxx` 的访问代理到 `vm.xxx` 上，）
 3. `observe` 转化 `data` 为可观察的对象
 
-
-## proxy
+### proxy
 
 > src/core/instance/state.js
 
@@ -229,8 +226,10 @@ export function defineReactive (
     val = obj[key]
   }
 
-  // observe(val)
+  // observe(val) 递归子属性
   let childOb = !shallow && observe(val)
+
+  // 为该属性添加 reactiveGetter reactiveSetter
   Object.defineProperty(obj, key, {
     enumerable: true,
     configurable: true,
@@ -305,6 +304,7 @@ export function observe (value: any, asRootData: ?boolean): Observer | void {
     Object.isExtensible(value) &&
     !value._isVue
   ) {
+    // 为自身添加 可观察对象 并递归调用 defineReactive 
     ob = new Observer(value)
   }
   if (asRootData && ob) {
@@ -413,22 +413,24 @@ export function def (obj: Object, key: string, val: any, enumerable?: boolean) {
 
 先初始化 watcher数组 `vm._watchers = []`
 
+**添加响应式的链式调用 => `defineReactive`：为自身添加响应式并递归子属性 => `observe`：为自身添加`value.__ob__` => `Observer`：调用`defineReactive`**
+
 - initProps
 
 1. init时间 `props` 在 `data` 之前
-2. init `props` 接着会使用定义的 `props` 属性遍历，时会先判断下 `props` 是否被 `method` 里面的方法名占用
-3. `defineReactive(props, key, value)` 先生成一个 `Dep` 实例
-4. `observe(value)` 为属性生成一个 `Observer(value)` 实例，并添加到属性 `value` 的 `__ob__` 上
-5. 并且通过递归 `this.walk(value)`  调用 `defineReactive`
+2. init `props` 接着会使用定义的 `otions._props` 属性遍历，时会先判断下 `prop` 是否被 `method` 里面的方法名占用
+3. 调用 `defineReactive(props, key, value)` 为 `props` 的每个属性生成一个 `Dep` 实例
+4. 再在 属性内部调用 `observe(props[key])` 为 `props` 的每个属性生成一个 `Observer(value)` 实例，并添加到属性 `value` 的 `__ob__` 上
+5. 并且通过递归 `this.walk(value)` 调用 `defineReactive` 为 `props` 的子属性递归添加监听
 6. 为 `props` 的每个属性都加上 `setter` `getter`，其中 `setter` 被触发会为新属性使用 `observe(value)`
 
 - initData
 
 1. 根据 `data` 的 key 遍历，然后通过 `proxy(vm, `_data`, key)` 把 `vm[key]` 的访问与修改代理到 `vm._data[key]` 
-2. `observe(data, true /* asRootData */)` 为属性生成一个 `Observer(data)` 实例，并添加到属性 `data` 的 `__ob__` 上
-3. 并且通过递归 `this.walk(value)`  调用 `defineReactive`
-4. 为 `data` 的每个属性都加上 `setter` `getter`，其中 `setter` 被触发会为新属性使用 `observe(value)`
+2. `observe(data, true /* asRootData */)` 为 `data` 本身生成一个 `Observer(data)` 实例，并添加到属性 `data` 的 `__ob__`
+3. 并且通过递归 `this.walk(value)`  调用 `defineReactive`, 观测整个 `data` 的变化，把 `data` 也变成响应式
+4. 为 `data` 及自身的每个属性都加上 `setter` `getter`，其中 `setter` 被触发会为新属性使用 `observe(value)`
 
-！！**Vue 没有为 props 自己及属性定义 `__ob__`，而 data 定义了为自己定义了`__ob__`** 神秘
+！！**Vue 没有为 props 自己定义 `__ob__`，而 data 定义了为自己及所有属性定义了`__ob__`** 神秘
 
 

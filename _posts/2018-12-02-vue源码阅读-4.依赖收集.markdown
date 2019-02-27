@@ -1,0 +1,389 @@
+---
+layout:     post
+title:      "vue源码阅读-4.依赖收集"
+subtitle:   "vue源码"
+date:       2018-12-02
+author:     "本人"
+header-img: "img/2018/vue/vue.png"
+tags:
+    - vue源码阅读
+---
+
+
+## 依赖收集
+
+通过 将 `props` 和 `data` 添加 getter 和 setter，每次访问 `props` 的子属性时，或访问 `data` 本身或其子属性时，都会触发一次 getter。
+
+那么可以通过这个机制，Vue 做了一层依赖收集，将所有被访问到的属性都收集在一个数组中，为日后的触发更新渲染做好准备。
+
+找到 `defineReactive` 看这个方法为对象的属性添加 getter 和 setter 时做了什么？
+
+> src/core/observer/index.js
+
+```typescript
+/**
+ * Define a reactive property on an Object.
+ */
+export function defineReactive (
+  obj: Object,
+  key: string,
+  val: any,
+  customSetter?: ?Function,
+  shallow?: boolean
+) {
+  // 实例化依赖收集对象
+  const dep = new Dep()
+
+  const property = Object.getOwnPropertyDescriptor(obj, key)
+  if (property && property.configurable === false) {
+    return
+  }
+
+  // cater for pre-defined getter/setters
+  const getter = property && property.get
+  const setter = property && property.set
+  if ((!getter || setter) && arguments.length === 2) {
+    val = obj[key]
+  }
+
+  let childOb = !shallow && observe(val)
+  Object.defineProperty(obj, key, {
+    enumerable: true,
+    configurable: true,
+    get: function reactiveGetter () {
+      const value = getter ? getter.call(obj) : val
+      if (Dep.target) {
+        // 添加依赖
+        dep.depend()
+        if (childOb) {
+         // 子属性添加依赖
+          childOb.dep.depend()
+          if (Array.isArray(value)) {
+            dependArray(value)
+          }
+        }
+      }
+      return value
+    },
+    set: function reactiveSetter (newVal) {
+      const value = getter ? getter.call(obj) : val
+      /* eslint-disable no-self-compare */
+      if (newVal === value || (newVal !== newVal && value !== value)) {
+        return
+      }
+      /* eslint-enable no-self-compare */
+      if (process.env.NODE_ENV !== 'production' && customSetter) {
+        customSetter()
+      }
+      // #7981: for accessor properties without setter
+      if (getter && !setter) return
+      if (setter) {
+        setter.call(obj, newVal)
+      } else {
+        val = newVal
+      }
+      childOb = !shallow && observe(newVal)
+      // 更新，通知依赖过他的去更新
+      dep.notify()
+    }
+  })
+}
+```
+
+一个是 `const dep = new Dep()` 实例化一个 `Dep` 的实例
+
+另一个是在 getter 函数中通过 `dep.depend` 做依赖收集
+
+
+### Dep
+
+> src/core/observer/dep.js
+
+```typescript
+/**
+ * A dep is an observable that can have multiple
+ * directives subscribing to it.
+ */
+export default class Dep {
+  static target: ?Watcher;
+  id: number;
+  subs: Array<Watcher>;
+
+  constructor () {
+    this.id = uid++
+    this.subs = []
+  }
+
+  addSub (sub: Watcher) {
+    this.subs.push(sub)
+  }
+
+  removeSub (sub: Watcher) {
+    remove(this.subs, sub)
+  }
+
+  depend () {
+    if (Dep.target) {
+      Dep.target.addDep(this)
+    }
+  }
+
+  notify () {
+    // stabilize the subscriber list first
+    const subs = this.subs.slice()
+    if (process.env.NODE_ENV !== 'production' && !config.async) {
+      // subs aren't sorted in scheduler if not running async
+      // we need to sort them now to make sure they fire in correct
+      // order
+      subs.sort((a, b) => a.id - b.id)
+    }
+    for (let i = 0, l = subs.length; i < l; i++) {
+      subs[i].update()
+    }
+  }
+}
+
+// The current target watcher being evaluated.
+// This is globally unique because only one watcher
+// can be evaluated at a time.
+Dep.target = null
+```
+
+`Dep` 是一个 `Class`，它定义了一些属性和方法
+
+1. 静态属性 `static target: ?Watcher;`，这是一个全局唯一 `Watcher`，为了在同一时间只能有一个全局的 `Watcher` 被计算
+2. 成员变量 `subs: Array<Watcher>;` 也是 `Watcher` 的数组
+3. 成员变量 `id: number;` uid ++
+4. 成员方法 `addSub (sub: Watcher)` 给该 Dep 实例添加一个Watcher实例
+5. 成员方法 `removeSub (sub: Watcher)` 给该 Dep 实例移除一个Watcher实例
+6. 成员方法 `depend ()` 给全局唯一一个 `Watcher` 实例添加新的依赖实例
+7. 成员方法 `notify ()` `this.subs` 通知所有的 `Watcher` 实例更新
+
+所以，`Dep` 实际上就是对 `Watcher` 的一种管理。
+
+所以当属性被获取时，`defineReactive` 会触发 `dep.depend()`，然后向全局唯一的 `Watcher` 实例添加本依赖实例，
+
+当属性被设置新的值时，`defineReactive` 会触发 `dep.notify()`，通知本依赖实例中所有的订阅去更新。
+
+然后我们去看下 `Watcher` 到底是个啥东西
+
+### Watcher
+
+> src/core/observer/watcher.js
+
+```typescript
+deps: Array<Dep>;
+newDeps: Array<Dep>;
+depIds: SimpleSet;
+newDepIds: SimpleSet;
+
+this.deps = []
+this.newDeps = []
+this.depIds = new Set()
+this.newDepIds = new Set()
+
+/**
+ * Add a dependency to this directive.
+ */
+addDep (dep: Dep) {
+  const id = dep.id
+  if (!this.newDepIds.has(id)) {
+    this.newDepIds.add(id)
+    this.newDeps.push(dep)
+    if (!this.depIds.has(id)) {
+      dep.addSub(this)
+    }
+  }
+}
+/**
+ * Clean up for dependency collection.
+ */
+cleanupDeps () {
+  let i = this.deps.length
+  while (i--) {
+    const dep = this.deps[i]
+    if (!this.newDepIds.has(dep.id)) {
+      dep.removeSub(this)
+    }
+  }
+  let tmp = this.depIds
+  this.depIds = this.newDepIds
+  this.newDepIds = tmp
+  this.newDepIds.clear()
+  tmp = this.deps
+  this.deps = this.newDeps
+  this.newDeps = tmp
+  this.newDeps.length = 0
+}
+
+```
+
+在 `Dep` 中用到的核心方法和属性就这个么几个
+
+1. `deps: Array<Dep>;` 和 `depIds: SimpleSet;` **本次** `Watcher` 实例持有的 `Dep` 实例的数组和 `id`
+2. `newDeps: Array<Dep>;` 和 `newDepIds: SimpleSet;` **下一次** `Watcher` 实例持有的 `Dep` 实例的数组和 `id`
+3. `addDep (dep: Dep)` 本次持有的实例中没有这个，则说明 `Dep` 为新创建的，就做一个双向依赖。`dep.addSub(this)` 往依赖实例中放一个新的 `Watcher`，然后再 `Watcher` 中的下一次 `Watcher` 实例持有的 `Dep` 实例添加新的实例
+4. `cleanupDeps ()` 遍历 `this.deps`，如果下一次的 `this.newDepIds` 不存在，则说明在下次的依赖收集中该依赖已经不需要了，则去掉在该依赖内移除该监听者 `Watcher`。最后交换 `deps` 和 `newDeps` 并且重置最新的 `this.newDeps` 为下一轮依赖收集做准备
+
+
+## 如何依赖收集
+
+好吧 我到现在也没看懂 Vue 是什么时候做的依赖收集，那我就往前翻一番。
+
+> src/core/instance/lifecycle.js
+
+```javascript
+} else {
+ updateComponent = () => {
+   vm._update(vm._render(), hydrating)
+ }
+}
+
+// we set this to vm._watcher inside the watcher's constructor
+// since the watcher's initial patch may call $forceUpdate (e.g. inside child
+// component's mounted hook), which relies on vm._watcher being already defined
+new Watcher(vm, updateComponent, noop, {
+ before () {
+   if (vm._isMounted && !vm._isDestroyed) {
+     callHook(vm, 'beforeUpdate')
+   }
+ }
+}, true /* isRenderWatcher */)
+```
+
+> src/core/observer/watcher.js
+
+```javascript
+constructor (
+ vm: Component,
+ expOrFn: string | Function,
+ cb: Function,
+ options?: ?Object,
+ isRenderWatcher?: boolean
+) {
+ this.vm = vm
+ if (isRenderWatcher) {
+   vm._watcher = this
+ }
+ vm._watchers.push(this)
+ // options
+ if (options) {
+   this.deep = !!options.deep
+   this.user = !!options.user
+   this.lazy = !!options.lazy
+   this.sync = !!options.sync
+   this.before = options.before
+ } else {
+   this.deep = this.user = this.lazy = this.sync = false
+ }
+ this.cb = cb
+ this.id = ++uid // uid for batching
+ this.active = true
+ this.dirty = this.lazy // for lazy watchers
+ this.deps = []
+ this.newDeps = []
+ this.depIds = new Set()
+ this.newDepIds = new Set()
+ this.expression = process.env.NODE_ENV !== 'production'
+   ? expOrFn.toString()
+   : ''
+ // parse expression for getter
+ if (typeof expOrFn === 'function') {
+   this.getter = expOrFn
+ } else {
+   this.getter = parsePath(expOrFn)
+   if (!this.getter) {
+     this.getter = noop
+     process.env.NODE_ENV !== 'production' && warn(
+       `Failed watching path: "${expOrFn}" ` +
+       'Watcher only accepts simple dot-delimited paths. ' +
+       'For full control, use a function instead.',
+       vm
+     )
+   }
+ }
+ this.value = this.lazy
+   ? undefined
+   : this.get()
+}
+```
+
+1. 当 Vue 初始化的时候，通过 `vm.$mount` => `mountComponent` 到达这里。
+2. 在 `new Watcher` 的时候，把 `Watcher` 实例 放入 Vue 实例的私有属性 `_watchers`。
+3. `this.getter = expOrFn` 其实 `getter` 就是 `updateComponent = () => { vm._update(vm._render(), hydrating) }`
+4. 最后调用 `this.get()`
+
+```javascript
+/**
+* Evaluate the getter, and re-collect dependencies.
+*/
+get () {
+ pushTarget(this)
+ let value
+ const vm = this.vm
+ try {
+   value = this.getter.call(vm, vm)
+ } catch (e) {
+   if (this.user) {
+     handleError(e, vm, `getter for watcher "${this.expression}"`)
+   } else {
+     throw e
+   }
+ } finally {
+   // "touch" every property so they are all tracked as
+   // dependencies for deep watching
+   if (this.deep) {
+     traverse(value)
+   }
+   popTarget()
+   this.cleanupDeps()
+ }
+ return value
+}
+```
+
+1. `this.get()` 首先调用了 `pushTarget(this)`
+2. 然后 `value = this.getter.call(vm, vm)`，其实就是调用了 `updateComponent` 然后触发了 `vm._update(vm._render(), hydrating)` 生成 Vnode 然后更新渲染
+3. 最后 `popTarget()` `this.cleanupDeps()`
+
+一样一样分析 `pushTarget(this)` 和 `popTarget()`
+
+> src/core/observer/dep.js
+
+```typescript
+// The current target watcher being evaluated.
+// This is globally unique because only one watcher
+// can be evaluated at a time.
+Dep.target = null
+const targetStack = []
+
+export function pushTarget (target: ?Watcher) {
+  targetStack.push(target)
+  Dep.target = target
+}
+
+export function popTarget () {
+  targetStack.pop()
+  Dep.target = targetStack[targetStack.length - 1]
+}
+```
+
+入栈，并把 `Dep` 的静态属性也就是那个全局 `Watcher` 替换为当前的 `Watcher`
+
+出栈，并把 `Dep` 的静态属性也就是那个全局 `Watcher` 替换为栈尾的 `Watcher`
+
+
+## 总结
+
+1. `this._init(options)` 初始化各种 `props` `data`
+2. 通过递归调用 `defineReactive` 会触发 `const dep = new Dep()` 生成依赖收集的对象 `Dep`，并通过闭包在 `getter` 和 `setter` 触发
+3. 然后开始挂载，调用 `this.$mount` 实例一个 `Watcher` 然后会调用 `this.get()` 
+4. `this.get()` 会调用 `pushTarget(this)` 把当前 `Watcher` 作为第一个实例入栈
+5. `this.getter()` 会触发传入的 `updateComponent`
+6. 接着又执行了：`vm._update(vm._render(), hydrating)`，先执行了 `vm._render()` 方法，因为之前分析过这个方法会生成 渲染 VNode，并且在这个过程中会对 `vm` 上的数据访问，这个时候就触发了被用到的数据对象的 `getter`
+7. 那么每个对象值的 `getter` 都持有一个通过闭包存储的 `dep`，在触发 `getter` 的时候会调用 `dep.depend()` 方法，也就会执行 `Dep.target.addDep(this)` 入栈
+8. 刚才我们提到这个时候 `Dep.target` 已经被赋值为渲染 Vnode 的 `watcher` 了，那么就执行到 `addDep` 方法：
+9. 这时候会做一些逻辑判断（判断id是否在数组中来保证同一数据不会被添加多次）后执行 `dep.addSub(this)`，那么就会执行 `this.subs.push(sub)`，也就是说把当前的 `watcher` 订阅到这个数据持有的 `dep` 的 `subs` 中，这个目的是为后续数据变化时候能通知到哪些 `subs` 做准备。
+10. **其实就在该属性的 `__ob__.dep.subs` 上都是订阅该依赖的所有 `Watcher`**
+11. `popTarget ()` 出栈并恢复到上一个 `Watcher`
+12. 最后在 `this.cleanupDeps()` 在执行 `cleanupDeps` 函数的时候，会首先遍历 `deps`，如果在 `newDepIds` 不存在， 移除该 `dep.subs` 数组中 `Wathcer` 的订阅，然后把 `newDepIds` 和 `depIds` 交换，`newDeps` 和 `deps` 交换，并把 `newDepIds` 和 `newDeps` 清空。
