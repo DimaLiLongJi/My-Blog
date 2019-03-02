@@ -433,4 +433,6 @@ export function def (obj: Object, key: string, val: any, enumerable?: boolean) {
 
 ！！**Vue 没有为 props 自己定义 `__ob__`，而 data 定义了为自己及所有属性定义了`__ob__`** 神秘
 
+核心就是利用 `Object.defineProperty` 给数据添加了 `getter` 和 `setter`，目的就是为了在我们访问数据以及写数据的时候能自动执行一些逻辑：`getter` 做的事情是依赖收集，`setter` 做的事情是派发更新，那么在接下来的章节我们会重点对这两个过程分析。
+
 

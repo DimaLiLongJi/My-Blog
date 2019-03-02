@@ -388,3 +388,5 @@ export function popTarget () {
 11. **其实就在该属性的 `__ob__.dep.subs` 上都是订阅该依赖的所有 `Watcher`**
 12. `popTarget ()` 出栈并恢复到上一个 `Watcher`
 13. 最后在 `this.cleanupDeps()` 在执行 `cleanupDeps` 函数的时候，会首先遍历 `deps`，如果在 `newDepIds` 不存在， 移除该 `dep.subs` 数组中 `Wathcer` 的订阅，然后把 `newDepIds` 和 `depIds` 交换，`newDeps` 和 `deps` 交换，并把 `newDepIds` 和 `newDeps` 清空。
+
+收集依赖的目的是为了当这些响应式数据发生变化，触发它们的 `setter` 的时候，能知道应该通知哪些订阅者去做相应的逻辑处理，我们把这个过程叫派发更新，其实 `Watcher` 和 `Dep` 就是一个非常经典的观察者设计模式的实现

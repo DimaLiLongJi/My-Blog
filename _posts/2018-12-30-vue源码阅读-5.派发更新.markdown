@@ -1,0 +1,354 @@
+---
+layout:     post
+title:      "vue源码阅读-5.派发更新"
+subtitle:   "vue源码"
+date:       2018-12-30
+author:     "本人"
+header-img: "img/2018/vue/vue.png"
+tags:
+    - vue源码阅读
+---
+
+
+## 派发更新
+
+通过 `defineReactive` 为每个属性生成一个 `Dep` 实例，并通过闭包和属性的 getter，setter 完成订阅通知。
+
+> src/core/observer/index.js
+
+```typescript
+/**
+ * Define a reactive property on an Object.
+ */
+export function defineReactive (
+  obj: Object,
+  key: string,
+  val: any,
+  customSetter?: ?Function,
+  shallow?: boolean
+) {
+  const dep = new Dep()
+  .......,
+
+  let childOb = !shallow && observe(val)
+  Object.defineProperty(obj, key, {
+    enumerable: true,
+    configurable: true,
+    .......,
+    set: function reactiveSetter (newVal) {
+      const value = getter ? getter.call(obj) : val
+      /* eslint-disable no-self-compare */
+      if (newVal === value || (newVal !== newVal && value !== value)) {
+        return
+      }
+      /* eslint-enable no-self-compare */
+      if (process.env.NODE_ENV !== 'production' && customSetter) {
+        customSetter()
+      }
+      // #7981: for accessor properties without setter
+      if (getter && !setter) return
+      if (setter) {
+        setter.call(obj, newVal)
+      } else {
+        val = newVal
+      }
+      childOb = !shallow && observe(newVal)
+      dep.notify()
+    }
+  })
+}
+```
+
+通知更新，当属性被更新，会触发属性的 `setter`。
+
+在这里，setter 主要做了3个事情，
+
+首先是 `const value = getter ? getter.call(obj) : val` 如果是被代理过来的属性，要通过代理属性的 `getter` 获取到真正的属性。
+
+`childOb = !shallow && observe(newVal)` 把新设置的属性变成一个响应式对象
+
+`dep.notify()` 通知收集的依赖去更新
+
+### dep.notify()
+
+看下 `dep.notify()`
+
+> src/core/observer/dep.js
+
+```typescript
+/**
+ * A dep is an observable that can have multiple
+ * directives subscribing to it.
+ */
+export default class Dep {
+  static target: ?Watcher;
+  id: number;
+  subs: Array<Watcher>;
+
+  constructor () {
+    this.id = uid++
+    this.subs = []
+  }
+  .....
+  notify () {
+    // stabilize the subscriber list first
+    const subs = this.subs.slice()
+    if (process.env.NODE_ENV !== 'production' && !config.async) {
+      // subs aren't sorted in scheduler if not running async
+      // we need to sort them now to make sure they fire in correct
+      // order
+      subs.sort((a, b) => a.id - b.id)
+    }
+    for (let i = 0, l = subs.length; i < l; i++) {
+      subs[i].update()
+    }
+  }
+}
+```
+
+这里的逻辑非常简单，遍历所有的 `this.subs`，也就是该属性持有的订阅者 `Watcher` 实例数组，然后调用每一个 `watcher` 的 `update` 方法
+
+### `watcher.update()`
+
+> src/core/observer/watcher.js
+
+```typescript
+/**
+ * Subscriber interface.
+ * Will be called when a dependency changes.
+ */
+update () {
+  /* istanbul ignore else */
+  if (this.lazy) {
+    this.dirty = true
+  } else if (this.sync) {
+    this.run()
+  } else {
+    queueWatcher(this)
+  }
+}
+```
+
+这里对于 `Watcher` 的不同状态，会执行不同的逻辑，在一般组件数据更新的场景，会走到最后一个 `queueWatcher(this)` 的逻辑。
+
+### queueWatcher(this)
+
+> src/core/observer/scheduler.js
+
+```typescript
+const queue: Array<Watcher> = []
+let has: { [key: number]: ?true } = {}
+let waiting = false
+let flushing = false
+/**
+ * Push a watcher into the watcher queue.
+ * Jobs with duplicate IDs will be skipped unless it's
+ * pushed when the queue is being flushed.
+ */
+export function queueWatcher (watcher: Watcher) {
+  const id = watcher.id
+  if (has[id] == null) {
+    has[id] = true
+    if (!flushing) {
+      queue.push(watcher)
+    } else {
+      // if already flushing, splice the watcher based on its id
+      // if already past its id, it will be run next immediately.
+      let i = queue.length - 1
+      while (i > index && queue[i].id > watcher.id) {
+        i--
+      }
+      queue.splice(i + 1, 0, watcher)
+    }
+    // queue the flush
+    if (!waiting) {
+      waiting = true
+
+      if (process.env.NODE_ENV !== 'production' && !config.async) {
+        flushSchedulerQueue()
+        return
+      }
+      nextTick(flushSchedulerQueue)
+    }
+  }
+}
+```
+
+这里就到了神秘的地方了，假设一下，我们在某个生命周期或者方法里面，遍历一个数组，然后对数组的每一项都进行更新。
+
+那么 Vue 真的会老老实实的每次触发 `setter` 都会更新一次吗，那么将造成大量的性能浪费。
+
+这里就引入了队列，Vue 维护了一个更新队列
+
+1. 首先用 `has` 对象保证同一个 `Watcher` 只添加一次
+2. 通过 `queue.push(watcher)` ，把被 `setter` 通过 `Dep` 通知更新的 `Watcher` 推入队列中
+3. 最后通过 `waiting` 保证对 `nextTick(flushSchedulerQueue)` 的调用逻辑只有一次
+
+### flushSchedulerQueue
+
+> src/core/observer/scheduler.js
+
+```typescript
+function flushSchedulerQueue () {
+  currentFlushTimestamp = getNow()
+  flushing = true
+  let watcher, id
+
+  // Sort queue before flush.
+  // This ensures that:
+  // 1. Components are updated from parent to child. (because parent is always
+  //    created before the child)
+  // 2. A component's user watchers are run before its render watcher (because
+  //    user watchers are created before the render watcher)
+  // 3. If a component is destroyed during a parent component's watcher run,
+  //    its watchers can be skipped.
+  queue.sort((a, b) => a.id - b.id)
+
+  // do not cache length because more watchers might be pushed
+  // as we run existing watchers
+  for (index = 0; index < queue.length; index++) {
+    watcher = queue[index]
+    if (watcher.before) {
+      watcher.before()
+    }
+    id = watcher.id
+    has[id] = null
+    watcher.run()
+    // in dev build, check and stop circular updates.
+    if (process.env.NODE_ENV !== 'production' && has[id] != null) {
+      circular[id] = (circular[id] || 0) + 1
+      if (circular[id] > MAX_UPDATE_COUNT) {
+        warn(
+          'You may have an infinite update loop ' + (
+            watcher.user
+              ? `in watcher with expression "${watcher.expression}"`
+              : `in a component render function.`
+          ),
+          watcher.vm
+        )
+        break
+      }
+    }
+  }
+
+  // keep copies of post queues before resetting state
+  const activatedQueue = activatedChildren.slice()
+  const updatedQueue = queue.slice()
+
+  resetSchedulerState()
+
+  // call component updated and activated hooks
+  callActivatedHooks(activatedQueue)
+  callUpdatedHooks(updatedQueue)
+
+  // devtool hook
+  /* istanbul ignore if */
+  if (devtools && config.devtools) {
+    devtools.emit('flush')
+  }
+}
+```
+
+1. 首先 `queue.sort((a, b) => a.id - b.id)` 通过对队列做了从小到大的排序，
+   
+   - 保证组件更新由 **父组件到子组件**
+   - **用户的自定义 `watcher` 要优先于渲染 `watcher` 执行；因为用户自定义 `watcher` 是在渲染 `watcher` 之前创建的**
+   - 如果一个组件在父组件的 `watcher` 执行期间被销毁，那么它对应的 `watcher` 执行都可以被跳过，所以父组件的 `watcher` 应该先执行
+
+2. ` for (index = 0; index < queue.length; index++)` 遍历队列并 `watcher.run()`。每次都在遍历的时候每次都会对 `queue.length` 求值，因为在 `watcher.run()` 的时候，很可能用户会再次添加新的 `watcher`，这样会再次执行到 `queueWatcher`
+
+   ```typescript
+   if (!flushing) {
+      queue.push(watcher)
+    } else {
+      // if already flushing, splice the watcher based on its id
+      // if already past its id, it will be run next immediately.
+      let i = queue.length - 1
+      while (i > index && queue[i].id > watcher.id) {
+        i--
+      }
+      queue.splice(i + 1, 0, watcher)
+    }
+   ```
+
+3. `resetSchedulerState` 状态恢复
+
+    > src/core/observer/scheduler.js
+
+    ```typescript
+    /**
+     * Reset the scheduler's state.
+     */
+    function resetSchedulerState () {
+      index = queue.length = activatedChildren.length = 0
+      has = {}
+      if (process.env.NODE_ENV !== 'production') {
+        circular = {}
+      }
+      waiting = flushing = false
+    }
+    ```
+    - `index = queue.length = activatedChildren.length = 0` 重置 Watcher 队列
+    - `has = {}` 重置 `Watcher` 存储对象
+    - `waiting = flushing = false` 重置等待更新的状态
+
+### watcher.run()
+
+在更新队列的时候，实际上是触发了 `watcher.run()` 这个方法。
+
+> src/core/observer/watcher.js
+
+```typescript
+/**
+ * Scheduler job interface.
+ * Will be called by the scheduler.
+ */
+run () {
+ if (this.active) {
+   const value = this.get()
+   if (
+     value !== this.value ||
+     // Deep watchers and watchers on Object/Arrays should fire even
+     // when the value is the same, because the value may
+     // have mutated.
+     isObject(value) ||
+     this.deep
+   ) {
+     // set new value
+     const oldValue = this.value
+     this.value = value
+     if (this.user) {
+       try {
+         this.cb.call(this.vm, value, oldValue)
+       } catch (e) {
+         handleError(e, this.vm, `callback for watcher "${this.expression}"`)
+       }
+     } else {
+       this.cb.call(this.vm, value, oldValue)
+     }
+   }
+ }
+}
+```
+
+ 1. `const value = this.get()` 先获取该属性的值
+ 2. 然后进行fiff
+
+    - `value !== this.value` 先跟上次 `get()` 之后存到 `this.value` (后面被赋值给`oldValue`)的值对比
+    - `isObject(value)` 如果是对象就进入对比
+    - `this.deep` 深diff的话继续
+  
+  3. `this.cb.call(this.vm, value, oldValue)`，执行 `watcher` 的回调，注意回调函数执行的时候会把第一个和第二个参数传入新值 `value` 和旧值 `oldValue`，这就是当我们添加自定义 `watcher` 的时候能在回调函数的参数中拿到新旧值的原因
+
+那么对于渲染 `watcher` 而言，**它在执行 `this.get()` 方法求值的时候，会执行 `getter` 方法调用**
+
+
+## 总结
+
+1. 当属性变化时，触发 `setter`，会触发属性中 `Dep` 实例的 `notify()` 方法通知该 `Dep` 中所有订阅过的 `Watcher` 实例。
+2. 通过遍历所有订阅过的 `Watcher` 实例，触发 `Watcher` 的 `update()` 调用 `queueWatcher(this)` 方法把该 `Watcher` 加入队列。
+3. `queueWatcher(this)` 会根据情况，如果没有 `flushing` 则 `queue.push(watcher)`，如果在更新中则 `queue.splice(i + 1, 0, watcher)` 插入队列。
+4. 当 `waiting` 为 `false` 时，则会 `nextTick(flushSchedulerQueue)` 触发渲染队列。
+5. `flushSchedulerQueue` 会先对队列中的 `Watcher` 进行排序（**因为父组件 `watcher id` 小所以要先更新父组件；然后组件内部的 `自定义Wacther` 先于组件渲染 `Watcher` 创建，所以先触发用户的 `Watcher`；**），然后再遍历依次调用 `watcher.run` 触发 `Watcher` 进行更新。
+6. `watcher.run` 首先会 `const value = this.get()` 触发 `get()` 里面的 `getter()` 去更新并获取最新的值。
+7. 接下来三种情况（新值与旧值不等，新值是对象，深监听）来触发 `Watcher` 实例的回调。
