@@ -423,6 +423,7 @@ export function def (obj: Object, key: string, val: any, enumerable?: boolean) {
 4. 再在 属性内部调用 `observe(props[key])` 为 `props` 的每个属性生成一个 `Observer(value)` 实例，并添加到属性 `value` 的 `__ob__` 上
 5. 并且通过递归 `this.walk(value)` 调用 `defineReactive` 为 `props` 的子属性递归添加监听
 6. 为 `props` 的每个属性都加上 `setter` `getter`，其中 `setter` 被触发会为新属性使用 `observe(value)`
+7. `proxy(vm, `_props`, key)` 把 `this` 上的属性代理到 `props`
 
 - initData
 

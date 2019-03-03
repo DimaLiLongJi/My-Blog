@@ -106,7 +106,9 @@ export default class Dep {
 }
 ```
 
-这里的逻辑非常简单，遍历所有的 `this.subs`，也就是该属性持有的订阅者 `Watcher` 实例数组，然后调用每一个 `watcher` 的 `update` 方法
+这里的逻辑非常简单，首先对 `wather` 排序，保证按照先后创建顺序（**user watcher要先于 render watcher**）
+
+遍历所有的 `this.subs`，也就是该属性持有的订阅者 `Watcher` 实例数组，然后调用每一个 `watcher` 的 `update` 方法
 
 ### `watcher.update()`
 
@@ -351,4 +353,4 @@ run () {
 4. 当 `waiting` 为 `false` 时，则会 `nextTick(flushSchedulerQueue)` 触发渲染队列。
 5. `flushSchedulerQueue` 会先对队列中的 `Watcher` 进行排序（**因为父组件 `watcher id` 小所以要先更新父组件；然后组件内部的 `自定义Wacther` 先于组件渲染 `Watcher` 创建，所以先触发用户的 `Watcher`；**），然后再遍历依次调用 `watcher.run` 触发 `Watcher` 进行更新。
 6. `watcher.run` 首先会 `const value = this.get()` 触发 `get()` 里面的 `getter()` 去更新并获取最新的值。
-7. 接下来三种情况（新值与旧值不等，新值是对象，深监听）来触发 `Watcher` 实例的回调。
+7. 接下来三种情况（**新值与旧值不等，新值是对象，深监听**）来触发 `Watcher` 实例的回调。
