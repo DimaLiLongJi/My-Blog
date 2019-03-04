@@ -1,0 +1,224 @@
+---
+layout:     post
+title:      "基础总结-9.js的继承"
+subtitle:   "js 基础总结"
+date:       2019-03-04
+author:     "本人"
+header-img: "img/2019/summary/js.jpeg"
+tags:
+    - 基础总结
+---
+
+
+## 构造函数、原型对象和实例之间的关系
+
+首先复习下之前的这些概念
+
+```javascript
+function AA() {}
+const aa = new AA();
+
+// 构造函数
+aa.constructor === AA; // true
+AA.__proto__ === Function.prototype; // true
+aa.constructor.__proto__ === Function.prototype; // true
+
+// 原型与实例
+aa.__proto__ === AA.prototype; // true
+AA.prototype.__proto__ === Object.prototype; // true
+aa.__proto__.__proto__ === Object.prototype; // true
+```
+
+
+## es5 的继承
+
+首先明确一个事情，js的继承是基于 原型 进行继承的。即使是es6的 `extend` 也是如此，仅仅是一个语法糖，通过“原型对象”（prototype）。
+
+### 原型链继承
+
+通过把 子类的 `prototype` 指向父类的一个实例，继承父类实例中的属性。
+
+```javascript
+//父类
+function Person(name, age) {
+  this.name = name,
+  this.age = age,
+  this.play = ['war3', 'dota', 'lol']
+  this.setName = function () {}
+}
+Person.prototype.setAge = function () {}
+//子类
+function Student(price) {
+  this.price = price
+  this.setScore = function () {}
+}
+Student.prototype = new Person() // 子类型的原型为父类型的一个实例对象
+var s1 = new Student(15000)
+var s2 = new Student(14000)
+console.log(s1,s2) 
+```
+
+这种方法的本质是把子类的显式原型指向了父类实例，所以子类的实例就可以通过 `__proto__` 访问到 `Student.prototype` 也就是 `Person`的实例上的方法和属性。
+
+然后再通过 `Person.prototype` 可以获得父类原型的方法和属性。
+
+缺点：
+
+1. 很危险，因为**所有子类实例的原型都是同一个实例**，如果 `s2.play.push('wow')`，则 `s1 s1` 的 `play` 全部会被改变。
+2. 父类构造函数无法传参
+3. 无法多继承
+
+### 借用构造函数继承
+
+在子类调用父类构造函数，并改变父类构造函数 `this` 并传参。
+
+```javascript
+//父类
+function Person(name, age) {
+  this.name = name,
+  this.age = age,
+  this.setName = function () {}
+}
+Person.prototype.setAge = function () {}
+function Student(name, age, price) {
+  Person.call(this, name, age)
+  this.price = price;
+}
+var s1 = new Student('Tom', 20, 15000)
+var s2 = new Student('Tom', 10, 14000)
+```
+
+解决了原型链继承 **父类属性被共享** 和 **父类构造函数无法传参** 的问题。
+
+还可以实现多继承(`call` 多个父类构造函数)
+
+缺点：
+
+1. 父类原型链上的方法属性无法获得
+2. 实例并不是父类的实例，只是子类的实例
+3. 无法实现函数复用，每个子类都有父类实例函数的副本，影响性能
+
+### 原型链+借用构造函数的组合继承
+
+```javascript
+function Person (name, age) {
+  this.name = name,
+  this.age = age,
+  this.setAge = function () { }
+}
+Person.prototype.setAge = function () {
+  console.log("111")
+}
+function Student (name, age, price) {
+  Person.call(this, name, age)
+  this.price = price
+  this.setScore = function () { }
+}
+Student.prototype = new Person()
+Student.prototype.constructor = Student//组合继承也是需要修复构造函数指向的
+Student.prototype.sayHello = function () { }
+var s1 = new Student('Tom', 20, 15000)
+var s2 = new Student('Jack', 22, 14000)
+console.log(s1)
+console.log(s1.constructor) //Student
+console.log(p1.constructor) //Person     
+```
+
+通过 `call` 调用父类构造，继承父类的属性并保留传参，
+
+然后通过将父类实例作为子类原型 `prototype`，实现函数复用。
+
+缺点：
+
+1. `Person.call(this, name, age)` `Student.prototype = new Person()` 调用2次父类构造函数生成了两份实例
+   
+#### 优化1
+
+```javascript
+function Person (name, age) {
+  this.name = name,
+  this.age = age,
+  this.setAge = function () { }
+}
+Person.prototype.setAge = function () {
+  console.log("111")
+}
+function Student (name, age, price) {
+  Person.call(this, name, age)
+  this.price = price
+  this.setScore = function () { }
+}
+Student.prototype = Person.prototype
+Student.prototype.sayHello = function () { }
+var s1 = new Student('Tom', 20, 15000)
+console.log(s1)  
+```
+
+缺点
+
+1. `Student.prototype = Person.prototype` 直接指向父类原型
+2. `s1 instanceof Student` `s1 instanceof Person` 都为true
+
+#### 优化2
+
+```javascript
+function Person (name, age) {
+  this.name = name,
+  this.age = age
+}
+Person.prototype.setAge = function () {
+  console.log("111")
+}
+function Student (name, age, price) {
+  Person.call(this, name, age)
+  this.price = price
+  this.setScore = function () { }
+}
+Student.prototype = Object.create(Person.prototype)
+Student.prototype.constructor = Student
+var s1 = new Student('Tom', 20, 15000)
+console.log(s1 instanceof Student, s1 instanceof Person) // true true
+console.log(s1.constructor) //Student
+console.log(s1)    
+```
+
+`Object.create(Person.prototype)` 直接生成一个继承了参数的对象（浅拷贝）
+
+`Student.prototype.constructor = Student` 然后修改下构造函数
+
+### es6 extends
+
+```javascript
+class Person {
+  //调用类的构造方法
+  constructor(name, age) {
+    this.name = name
+    this.age = age
+  }
+  //定义一般的方法
+  showName () {
+    console.log("调用父类的方法")
+    console.log(this.name, this.age);
+  }
+}
+let p1 = new Person('kobe', 39)
+console.log(p1)
+//定义一个子类
+class Student extends Person {
+  constructor(name, age, salary) {
+    super(name, age)
+    this.salary = salary
+  }
+  showName () {//在子类自身定义方法
+    console.log("调用子类的方法")
+    console.log(this.name, this.age, this.salary);
+  }
+}
+let s1 = new Student('wade', 38, 1000000000)
+console.log(s1)
+s1.showName()     
+```
+
+也是原型继承，但是在 `super(name,age)` 相当于 `Person.call(this, name, age)`，但不同的是 **`super`之前是拿不到`this`**
+
+`s1 instanceof Student` `s1 instanceof Person` 都为true

@@ -58,7 +58,7 @@ function createObject() {
     // 创建一个空的对象
     const obj = new Object();
     // 删除第一个参数构造函数，并获得构造函数
-    const ConstructorFunc = [].shift.call(arguments); 
+    const ConstructorFunc = Array.prototype.shift.call(arguments); 
     // 链接到原型
     obj.__proto__ = ConstructorFunc.prototype;
     // 绑定 this，执行构造函数传入删除构造函数后的参数
