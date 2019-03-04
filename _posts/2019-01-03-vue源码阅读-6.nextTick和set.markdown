@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "vue源码阅读-6.nextTick"
+title:      "vue源码阅读-6.nextTick和set"
 subtitle:   "vue源码"
 date:       2019-01-03
 author:     "本人"
@@ -19,6 +19,9 @@ tags:
 3. `watcher` 的 `update` 则会调用 `queueWatcher(this)` 将 `watcher` 推入队列并开启触发 `flushSchedulerQueue()` 
 4. `flushSchedulerQueue()` 会开始清空任务队列，从小到大排序，然后循环遍历触发每个 `watcher` 的 `run()`
 5. `watcher` 的 `run()` 触发 `get()` 获取新值并触发传入的 `updateComponent` 完成渲染并触发回调 `this.cb.call(this.vm, value, oldValue)`
+
+
+## nextTick
 
 其实在正常情况如果没有设置同步的话，其实应该是触发了 `nextTick(flushSchedulerQueue)`
 
@@ -268,7 +271,71 @@ export function nextTick (cb?: Function, ctx?: Object) {
 3. 这里使用 `callbacks` 而不是直接在 `nextTick` 中执行回调函数的原因是保证在**同一个 `tick` 内多次执行 `nextTick`，不会开启多个异步任务，而把这些异步任务都压成一个同步任务，在下一个 `tick` 执行完毕**。
    
 
-## 总结
+## Vue.set
+
+因为 `Object.defineProperty` 无法监听对象属性的新增与移除，数组某个 `index` 被直接赋值或删除也无法监听（数组其他方法 Vue 进行了重写）。
+
+所以动态新增一个被监听对象时，需要使用 `Vue.set` 新增可观察属性，`Vue.del` 删除可观察属性。
+
+> src/core/observer/index.js
+
+```typescript
+/**
+ * Set a property on an object. Adds the new property and
+ * triggers change notification if the property doesn't
+ * already exist.
+ */
+export function set (target: Array<any> | Object, key: any, val: any): any {
+  if (process.env.NODE_ENV !== 'production' &&
+    (isUndef(target) || isPrimitive(target))
+  ) {
+    warn(`Cannot set reactive property on undefined, null, or primitive value: ${(target: any)}`)
+  }
+  if (Array.isArray(target) && isValidArrayIndex(key)) {
+    target.length = Math.max(target.length, key)
+    target.splice(key, 1, val)
+    return val
+  }
+  if (key in target && !(key in Object.prototype)) {
+    target[key] = val
+    return val
+  }
+  const ob = (target: any).__ob__
+  if (target._isVue || (ob && ob.vmCount)) {
+    process.env.NODE_ENV !== 'production' && warn(
+      'Avoid adding reactive properties to a Vue instance or its root $data ' +
+      'at runtime - declare it upfront in the data option.'
+    )
+    return val
+  }
+  if (!ob) {
+    target[key] = val
+    return val
+  }
+  defineReactive(ob.value, key, val)
+  ob.dep.notify()
+  return val
+}
+```
+
+`set` 方法接收 3个参数
+
+1. `target` 可能是数组或者是普通对象
+2. `key` 代表的是数组的下标或者是对象的键值
+3. `val` 代表添加的值。
+ 
+首先判断如果 `target` 是数组且 `key` 是一个合法的下标，则之前通过 `splice` 去添加进数组然后返回。（`splice`已经被 Vue 重写了）。
+
+接着又判断如果 `key` 已经存在于 `target` 中并且 `key` 不是 `Object.prototype`，则直接赋值返回。
+
+接下来拿到 `target.__ob__`。
+
+如果 `target.__ob__` 不存在，则直接赋值给对象并返回该值。
+
+如果 `target.__ob__` 存在，则说明 `target` 是对象并且之前初始化过了，所以直接就 `defineReactive(ob.value, key, val)` 并触发 `target` 上的观察者的依赖去调用 `watcher`（`ob.dep.notify()`）
+
+
+## 总结下 nextTick
 
 1. 当触发 setter 之后，如果不是同步组件，则会调用 `nextTick(flushSchedulerQueue)`
 2. `nextTick` 先定义使用的异步api，优先级从高到底为：`Promise.then()` => `MutationObserver` => `setImmediate` => `setTimeout`
