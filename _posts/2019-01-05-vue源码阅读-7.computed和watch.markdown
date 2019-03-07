@@ -514,4 +514,4 @@ run () {
 
 而侦听属性适用于观测某个值的变化去完成一段复杂的业务逻辑。
 
-![vue 响应式](/img/2018/vue/vue-reactive.png)
+![vue 响应式](/my-blog/img/2018/vue/vue-reactive.png)

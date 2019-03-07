@@ -623,5 +623,5 @@ function insert (parent, elm, ref) {
 
 ## 总结
 
-![new Vue](/img/2018/vue/new-vue.png)
+![new Vue](/my-blog/img/2018/vue/new-vue.png)
 

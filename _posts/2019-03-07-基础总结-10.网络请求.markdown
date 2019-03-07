@@ -85,7 +85,7 @@ ISP 的 DNS 服务器：ISP 是互联网服务提供商(Internet Service Provide
 2. Client  <=  (SYN=1，ACK=X+1，Seq=Y)  <=  Service
 3. Client  =>  (ACK=Y+1，Seq=Z)  =>  Service
 
-![TCP三次握手](/img/2019/03/发起tcp请求.jpg)
+![TCP三次握手](/my-blog/img/2019/03/发起tcp请求.jpg)
 
 **三次握手的目的：为了防止已失效的连接请求报文段突然又传送到了服务端，因而产生错误**
 
@@ -177,7 +177,7 @@ Client 客户端方主动发起断开 TCP 连接。
 3. Client  <=  (FYN=1，ACK=X，Seq=Y)  <=  Service
 4. Client  =>  (ACK=Y，Seq=X)  =>  Service
 
-![TCP断开](/img/2019/03/tcp断开连接.png)
+![TCP断开](/my-blog/img/2019/03/tcp断开连接.png)
 
 发起方向被动方发送报文，Fin、Ack、Seq，表示已经没有数据传输了。并进入 FIN_WAIT_1 状态。
 
