@@ -378,12 +378,12 @@ export function popTarget () {
 1. `this._init(options)` 初始化各种 `props` `data`
 2. `observe` 或生产 `ob = new Observer(value)`，并通过 `def(value, '__ob__', this)` 添加把 `Observer` 添加到属性中
 3. 通过递归调用 `defineReactive` 会触发 `const dep = new Dep()` 生成依赖收集的对象 `Dep`，并通过闭包在 `getter` 和 `setter` 触发
-4. 开始挂载，调用 `this.$mount` 实例一个 `Watcher` 然后会调用 `this.get()` 
-5. `this.get()` 会调用 `pushTarget(this)` 把当前 `Watcher` 作为第一个实例入栈
+4. 开始挂载，调用 `this.$mount` 实例一个 `Watcher` 然后在 `Watcher` 实例的时候调用 `this.get()` ，也就是 `updateComponent = () => { vm._update(vm._render(), hydrating)}`
+5. `this.get()` 会调用 `pushTarget(this)` 把当前 `Watcher` 作为第一个实例入栈（其实是组件的渲染 watcher）
 6. `this.getter()` 就是传入的 `updateComponent`，也就是生成 Vnode 并更新
 7. 接着又执行了：`vm._update(vm._render(), hydrating)`，先执行了 `vm._render()` 方法，因为之前分析过这个方法会生成 渲染 VNode，并且在这个过程中会对 `vm` 上的数据访问，这个时候就触发了被用到的数据对象的 `getter`
 8. 那么每个对象值的 `getter` 都持有一个通过闭包存储的 `dep`，在触发 `getter` 的时候会调用 `dep.depend()` 方法，也就会执行 `Dep.target.addDep(this)` 入栈
-9. 刚才我们提到这个时候 `Dep.target` 已经被赋值为渲染 Vnode 的 `watcher` 了，那么就执行到 `addDep` 方法：
+9. 刚才我们提到这个时候 `Dep.target` 已经被赋值为渲染 `watcher` 了，那么就执行到 `addDep` 方法：
 10. 这时候会做一些逻辑判断（判断id是否在数组中来保证同一数据不会被添加多次）后执行 `dep.addSub(this)`，那么就会执行 `this.subs.push(sub)`，也就是说把当前的 `watcher` 订阅到这个数据持有的 `dep` 的 `subs` 中，这个目的是为后续数据变化时候能通知到哪些 `subs` 做准备。
 11. **其实就在该属性的 `__ob__.dep.subs` 上都是订阅该依赖的所有 `Watcher`**
 12. `popTarget ()` 出栈并恢复到上一个 `Watcher`
