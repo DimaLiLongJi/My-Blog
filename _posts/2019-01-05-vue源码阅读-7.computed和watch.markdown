@@ -103,7 +103,6 @@ function initComputed (vm: Component, computed: Object) {
 9. 否则则判断是否被 `data` 或 `prop` 占用了，如果是则发出警告
 
 ```
-
 new Wachter => watcher.get => wathcer 到栈顶 `pushTarget(this)` => 执行 `watcher.getter()` 方法（render 或 computed fuction） => `watcher.getter()` 方法触发内部使用到的属性的 getter
 
 => 被使用到的属性的 getter 触发 `dep.depend()` => 属性 getter 触发 `Dep.target.addDep(this)` => 栈顶 wathcer 收集到 newDeps 并 `this.newDeps.push(dep)`
@@ -111,7 +110,6 @@ new Wachter => watcher.get => wathcer 到栈顶 `pushTarget(this)` => 执行 `wa
 => watcher 继续执行 `dep.addSub(this)` => 属性getter的 dep 收集起栈顶的 watcher `this.subs.push(sub)`
 
 => watcher 继续执行 `popTarget()` 出栈 => watcher 继续执行 `popTarget()` 出栈 => watcher 继续 `this.cleanupDeps()` 遍历移除不需要的 dep 并交换新旧 deps
-
 ```
 
 ### defineComputed

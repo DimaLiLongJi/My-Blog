@@ -1,0 +1,249 @@
+---
+layout:     post
+title:      "vue源码阅读-8.vue初始化及生命周期总结"
+subtitle:   "vue源码"
+date:       2019-01-08
+author:     "本人"
+header-img: "img/2018/vue/vue.png"
+tags:
+    - vue源码阅读
+---
+
+
+## Vue 初始化
+
+每个 Vue 实例（组件也是）在被创建之前都要经过一系列的初始化过程。
+
+例如需要设置数据监听、编译模板、挂载实例到 DOM、在数据变化时更新 DOM 等。
+
+同时在这个过程中也会运行一些叫做生命周期钩子的函数，给予用户机会在一些特定的场景下添加他们自己的代码。
+
+> src/core/instance/init.js
+
+```typescript
+Vue.prototype._init = function (options?: Object) {
+  ......
+  // expose real self
+  vm._self = vm
+  initLifecycle(vm)
+  initEvents(vm)
+  initRender(vm)
+  callHook(vm, 'beforeCreate')
+  initInjections(vm) // resolve injections before data/props
+  initState(vm)
+  initProvide(vm) // resolve provide after data/props
+  callHook(vm, 'created')
+  ......
+  if (vm.$options.el) {
+    vm.$mount(vm.$options.el)
+  }
+}
+```
+
+按照顺序
+
+初始化生命周期 => 初始化事件 => 初始化渲染 => 调用生命周期`beforeCreate` => 初始化注入 => 初始化状态（`data, props`） => 初始化提供商 => 调用生命周期`created` => 渲染挂载组件
+
+`initLifecycle(vm)` => `initEvents(vm)` => `initRender(vm)` => `callHook(vm, 'beforeCreate')` => `initInjections(vm)` => `initState(vm)` => `initProvide(vm)` => `callHook(vm, 'created')` => `vm.$mount(vm.$options.el)`
+
+
+## 生命周期
+
+vue 所有的生命周期都是由 `callHook` 来调用的
+
+> src/core/instance/lifecycle.js
+
+```typescript
+export function callHook (vm: Component, hook: string) {
+  // #7573 disable dep collection when invoking lifecycle hooks
+  pushTarget()
+  const handlers = vm.$options[hook]
+  const info = `${hook} hook`
+  if (handlers) {
+    for (let i = 0, j = handlers.length; i < j; i++) {
+      invokeWithErrorHandling(handlers[i], vm, null, vm, info)
+    }
+  }
+  if (vm._hasHookEvent) {
+    vm.$emit('hook:' + hook)
+  }
+  popTarget()
+}
+```
+
+1. 根据传入的生命周期字符串，去拿到 `vm.$options[hook]` 对应的回调函数数组
+2. 遍历执行，执行 `invokeWithErrorHandling` 的时候把 vm 作为函数执行的上下文
+3. `invokeWithErrorHandling` 会执行函数，并尝试捕获错误（如果是 `Promise`，则 `catch`）
+
+### beforeCreate 和 created
+
+可以看到 `beforeCreate` 和 `created` 的钩子调用是在 `initState` 的前后。
+
+而 `initState` 的作用是初始化 `props、data、methods、watch、computed` 等属性。
+
+那么显然 **`beforeCreate` 的钩子函数中就不能获取到 `props、data` 中定义的值，也不能调用 methods 中定义的函数**。
+
+在 `beforeCreate` 和 `created` 执行的时候，并没有渲染 DOM，所以也**不能够访问 DOM**。
+
+一般来说，如果组件在加载的时候需要和后端有交互，放在这俩个钩子函数执行都可以，如果是需要访问 `props、data` 等数据的话，就需要使用 `created` 钩子函数。
+
+### beforeMount 和 mounted
+
+`beforeMount` 钩子函数发生在渲染 `Watcher` 实例化之前，也就是首次渲染之前
+
+`mounted` 钩子函数发生在渲染 `Watcher` 实例化之后，也就是首次渲染之后
+
+> src/core/instance/lifecycle.js
+
+```typescript
+export function mountComponent (
+  vm: Component,
+  el: ?Element,
+  hydrating?: boolean
+): Component {
+  ......
+  callHook(vm, 'beforeMount')
+  ......
+  new Watcher(vm, updateComponent, noop, {
+    before () {
+      if (vm._isMounted && !vm._isDestroyed) {
+        callHook(vm, 'beforeUpdate')
+      }
+    }
+  }, true /* isRenderWatcher */)
+  hydrating = false
+
+  // manually mounted instance, call mounted on self
+  // mounted is called for render-created child components in its inserted hook
+  if (vm.$vnode == null) {
+    vm._isMounted = true
+    callHook(vm, 'mounted')
+  }
+  return vm
+}
+```
+
+### beforeUpdate 和 updated
+
+`beforeUpdate` 和 `updated` 的钩子函数执行时机都应该是在数据更新的时候。
+
+`beforeUpdate` 在 `mountComponent` 触发渲染 `watcher` 的时候会被触发（首次和更新）
+
+> src/core/instance/lifecycle.js
+
+```typescript
+export function mountComponent (
+  vm: Component,
+  el: ?Element,
+  hydrating?: boolean
+): Component {
+  ......
+  callHook(vm, 'beforeMount')
+  ......
+  new Watcher(vm, updateComponent, noop, {
+    before () {
+      if (vm._isMounted && !vm._isDestroyed) {
+        callHook(vm, 'beforeUpdate')
+      }
+    }
+  }, true /* isRenderWatcher */)
+  hydrating = false
+
+  // manually mounted instance, call mounted on self
+  // mounted is called for render-created child components in its inserted hook
+  if (vm.$vnode == null) {
+    vm._isMounted = true
+    callHook(vm, 'mounted')
+  }
+  return vm
+}
+```
+
+`Watcher` 被 `Dep` 通知时触发 `update` 然后再触发 `queueWatcher` 然后再 触发 `flushSchedulerQueue` 再 `callUpdatedHooks` 时触发
+
+> src/core/observer/scheduler.js
+
+```typescript
+/**
+ * Flush both queues and run the watchers.
+ */
+function flushSchedulerQueue () {
+  ......
+  callActivatedHooks(activatedQueue)
+  callUpdatedHooks(updatedQueue)
+  ......
+}
+
+function callUpdatedHooks (queue) {
+  let i = queue.length
+  while (i--) {
+    const watcher = queue[i]
+    const vm = watcher.vm
+    if (vm._watcher === watcher && vm._isMounted && !vm._isDestroyed) {
+      callHook(vm, 'updated')
+    }
+  }
+}
+```
+
+### beforeDestroy 和 destroyed
+
+顾名思义，这是在组件销毁前后触发的生命周期。
+
+```typescript
+Vue.prototype.$destroy = function () {
+  const vm: Component = this
+  if (vm._isBeingDestroyed) {
+    return
+  }
+  callHook(vm, 'beforeDestroy')
+  vm._isBeingDestroyed = true
+  // remove self from parent
+  const parent = vm.$parent
+  if (parent && !parent._isBeingDestroyed && !vm.$options.abstract) {
+    remove(parent.$children, vm)
+  }
+  // teardown watchers
+  if (vm._watcher) {
+    vm._watcher.teardown()
+  }
+  let i = vm._watchers.length
+  while (i--) {
+    vm._watchers[i].teardown()
+  }
+  // remove reference from data ob
+  // frozen object may not have observer.
+  if (vm._data.__ob__) {
+    vm._data.__ob__.vmCount--
+  }
+  // call the last hook...
+  vm._isDestroyed = true
+  // invoke destroy hooks on current rendered tree
+  vm.__patch__(vm._vnode, null)
+  // fire destroyed hook
+  callHook(vm, 'destroyed')
+  // turn off all instance listeners.
+  vm.$off()
+  // remove __vue__ reference
+  if (vm.$el) {
+    vm.$el.__vue__ = null
+  }
+  // release circular reference (#6759)
+  if (vm.$vnode) {
+    vm.$vnode.parent = null
+  }
+}
+```
+
+`beforeDestroy` 钩子函数的执行时机是在 `$destroy` 函数执行最开始的地方，接着执行了一系列的销毁动作，包括从 `parent` 的 `$children` 中删掉自身，删除 `watcher`，当前渲染的 `VNode` 执行销毁钩子函数等，执行完毕后再调用 `destroy` 钩子函数。
+
+在 `$destroy` 的执行过程中，它又会执行 `vm.__patch__(vm._vnode, null)` 触发它子组件的销毁钩子函数，这样一层层的递归调用，所以 **`destroy` 钩子函数执行顺序是先子后父，和 `mounted` 过程一样**。
+
+
+## 总结
+
+先上一张官网的图：
+
+![vue 初始化及生命周期](/my-blog/img/2018/vue/lifecycle.png)
+
+
