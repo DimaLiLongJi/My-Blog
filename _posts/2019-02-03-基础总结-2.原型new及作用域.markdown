@@ -12,7 +12,7 @@ tags:
 
 ## 原型
 
-### 显式原型`prototype` 与 隐式原型`__proto__`
+### 显式原型 prototype 与 隐式原型 __proto__
 
 因为在 JS 中是没有类（Class语法糖，实际上还是原型继承）的概念的，为了实现类似继承的方式，通过 `__proto__` 将对象和原型联系起来组成原型链，得以让对象可以访问到不属于自己的属性。
 
@@ -56,7 +56,7 @@ new时候发生了什么
 ```javascript
 function createObject() {
     // 创建一个空的对象
-    const obj = new Object();
+    const obj = {};
     // 删除第一个参数构造函数，并获得构造函数
     const ConstructorFunc = Array.prototype.shift.call(arguments); 
     // 链接到原型

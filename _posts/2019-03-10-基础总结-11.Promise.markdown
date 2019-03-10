@@ -1,0 +1,518 @@
+---
+layout:     post
+title:      "基础总结-11.Promise"
+subtitle:   "js 基础总结"
+date:       2019-03-10
+author:     "本人"
+header-img: "img/2019/summary/js.jpeg"
+tags:
+    - 基础总结
+---
+
+
+## Promise
+
+`Promise` 是为了解决异步编程回调地狱的弊端，提供了 `then` 链式调用，用于表示一个异步操作的最终状态（完成或失败），以及其返回的值。
+
+1. `Promise` 是一个构造函数（或者类），接受一个函数作为参数，该函数接受 `resolve，reject` 两个参数
+2. `Promise` 是个状态机，它的内部有三种状态：`pending`（初始状态进行中）、`fulfilled`（已成功）和`rejected`（已失败），其中`pending`可以转化为`fulfilled`或者和`rejected`，**但是不能逆向转化，成功和失败也不能相互转化**。
+3. 构造函数的2个参数 `resolve` 和 `reject` 函数被调用时，分别将 `promise`的状态改为 `fulfilled` （完成）或 `rejected` （失败）
+4. `Promise.prototype.then(onFulfilled, onRejected)` 方法接收两个参数 `onFulfilled`  `onRejected` 添加解决和拒绝回调到当前 `promise`, 返回一个新的 `promise`, 将以回调的返回值来 `resolve`
+
+![Promise](/my-blog/img/2019/03/promises.png)
+
+
+## 用宏任务实现一个不带静态方法的 Promise
+
+本次使用 typescript 来实现
+
+### 内部状态和类型
+
+因为状态实际上是常量，所以使用ts的 [枚举](https://www.tslang.cn/docs/handbook/enums.html) 来实现。
+
+```typescript
+// 三种状态
+enum PromiseState {
+  PENDING = 'pending',
+  RESOLVED = 'resolved',
+  REJECTED = 'rejected',
+}
+type PromiseResolve<T = any> = (value?: T) => void;
+type PromiseReject<T = any> = (reason?: T) => void;
+type PromiseThen<T = any> = (onResolved?: PromiseResolve<T>, onRejected?: PromiseReject<T | any>) => MyPromise<T | any>;
+type PromiseCatch<T = any> = (onRejected?: PromiseReject<T | any>) => MyPromise<T | any>;
+type PromiseExecutor<T = any> = (resolve?: PromiseResolve<T>, reject?: PromiseReject<T | any>) => any;
+```
+
+1. `PromiseResolve` 为 成功状态的回调函数。
+2. `PromiseReject` 为 失败状态的回调函数。
+3. `PromiseThen` 为 `then` 方法的类型。
+4. `PromiseCatch` 为 `catch` 方法的类型。
+5. `PromiseExecutor` 为 构造函数的参数。
+
+这里使用了[泛型](https://www.tslang.cn/docs/handbook/generics.html) `<T>`，并默认值为`any`。
+
+### 构造函数和处理器函数
+
+`new Promise` 的时候需要像构造函数传一个函数，该函数被称为[处理器函数（executor function）](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Promise#%E5%88%9B%E5%BB%BAPromise)。
+
+这个处理器函数接受两个函数—— `resolve` 和 `reject` ——作为其参数。
+
+当构造函数中任务完成时，会调用 `Promise` 实例上的 `resolve` 方法；
+
+而当构造函数中任务失败需要返回失败原因（通常是一个错误对象）时，会调用 `Promise` 实例上的 `reject` 方法。
+
+设置初始的状态为等待，并且我们要用2个数组来存下 `then` 方法产生的成功与失败状态的回调函数。
+
+```typescript
+class MyPromise<T = any> {
+  value: T;
+  currentState: PromiseState = PromiseState.PENDING;
+  resolvedCallbacks: PromiseResolve[] = []; // then成功回调
+  rejectedCallbacks: PromiseReject[] = []; // then失败回调
+
+  constructor(fn: PromiseExecutor<T>) {
+    try {
+      fn(this.resolve, this.reject);
+    } catch (e) {
+      this.reject(e);
+    }
+  }
+}
+```
+
+### resolve 与 reject 方法
+
+返回一个状态由给定 `value` 决定的 `Promise`对象。
+
+如果该值 `value` 是一个 `Promise` 对象，则直接返回该对象；
+
+如果调用 `resolve` 将状态为成功的 `Promise` 对象，并将给定的成功信息传递给对应的处理方法；
+
+如果调用 `reject` 将状态变更为失败的 `Promise` 对象，并将给定的失败信息传递给对应的处理方法。
+
+只有当状态为初始状态 `pending` 的时候才可以变更状态并异步触发回调函数。
+
+```typescript
+resolve: PromiseResolve<T> = (value?: T) => {
+ if (value instanceof MyPromise) {
+   // 传入 Promise 实例的话，要向继续下传递
+   // 如果该值 value 是一个 Promise 对象，则直接返回该对象
+   return value.then(this.resolve, this.reject);
+ }
+ // 宏任务代替微任务执行
+ setTimeout(() => {
+   if (this.currentState === PromiseState.PENDING) {
+     this.currentState = PromiseState.RESOLVED;
+     this.value = value;
+     this.resolvedCallbacks.forEach(cb => cb());
+   }
+ });
+}
+
+reject: PromiseReject<T> = (reason?: T) => {
+ // 宏任务代替微任务执行
+ setTimeout(() => {
+   if (this.currentState === PromiseState.PENDING) {
+     this.currentState = PromiseState.REJECTED;
+     this.value = reason;
+     this.rejectedCallbacks.forEach(cb => cb());
+   }
+ })
+}
+```
+
+### then方法
+
+then() 方法返回一个  `Promise` 。
+
+它需要两个非必须的参数：
+
+1. `Promise` 的成功回调函数 `onResolved?: PromiseResolve<T>`，传入的 `onFulfilled` 参数类型不是函数，则会在内部被替换为(returnValue) => returnValue ，即原样返回 promise 最终结果的函数
+2. 失败情况的 `onRejected?: PromiseReject<T>`
+3. 如果没有对应状态的处理回调函数的话，`then` 会创建并返回一个新的并带着这个状态的 `Promise`
+
+实现思路：
+
+1. 首先我们判断下2个回调函数存在并且是否为 `function` 类型，如果不存在要自定义一个 `value => value`
+2. 如果当前状态为 `pending`，返回一个 `pending` 状态的 `Promise`
+3. 如果**当前状态为 `resolved`，返回一个 `resolved` 状态的 `Promise`**
+4. 如果**当前状态为 `rejected`，返回一个 `resolved` 状态的 `Promise`**
+5. 如果回调函数返回一个值，那么 `then` 返回的 `Promise` 应该接收该值并值应成为接受状态的回调函数的参数值并继续传递
+6. 如果**没有对应状态的回调函数，需要透传，返回一个相同状态的 `Promise`**
+
+```typescript
+then: PromiseThen<T> = (onResolved?: PromiseResolve<T>, onRejected?: PromiseReject<T>) => {
+ const that = this;
+ // 规范 2.2.7，then 必须返回一个新的 promise
+ let newMyPromise: MyPromise;
+ // 规范 2.2.onResolved 和 onRejected 都为可选参数
+ // 如果 onResolved 和 onRejected 不是函数则要自行生成新的函数，保证了透传
+ const _onResolved: any = typeof onResolved === 'function' ? onResolved : v => v;
+ const _onRejected: any = typeof onRejected === 'function' ? onRejected : r => { throw r };
+
+ // 初始状态
+ if (this.currentState === PromiseState.PENDING) {
+   newMyPromise = new MyPromise<T>(function (resolve, reject) {
+     that.resolvedCallbacks.push(function () {
+       // 使用 try/catch 如果有报错的话，直接 reject(r)
+       try {
+         var returnValue = _onResolved(that.value);
+         resolve(returnValue);
+       } catch (r) {
+         reject(r);
+       }
+     });
+
+     that.rejectedCallbacks.push(function () {
+       try {
+         var returnValue = _onRejected(that.value);
+         resolve(returnValue);
+       } catch (r) {
+         reject(r);
+       }
+     });
+   });
+   return newMyPromise;
+ }
+ // resolved状态
+ if (this.currentState === PromiseState.RESOLVED) {
+   newMyPromise = new MyPromise<T>(function (resolve, reject) {
+     // 规范 2.2.4，为了保证 onFulfilled，onRjected 异步执行 所以用了 setTimeout 包裹下
+     setTimeout(function () {
+       try {
+         var returnValue = _onResolved(this.value);
+          resolve(returnValue);
+       } catch (reason) {
+         reject(reason);
+       }
+     });
+   });
+   return newMyPromise;
+ }
+ // rejected状态
+ if (this.currentState === PromiseState.REJECTED) {
+   newMyPromise =  new MyPromise<T>(function (resolve, reject) {
+     setTimeout(function () {
+       // 异步执行onRejected
+       try {
+         var returnValue = _onRejected(this.value);
+         resolve(returnValue);
+       } catch (reason) {
+         reject(reason);
+       }
+     });
+   });
+   return newMyPromise;
+ }
+}
+```
+
+### [Promise A+ 2.3规范](https://segmentfault.com/a/1190000002452115#articleHeader3)
+
+**此处 `promise` 为 `newMyPromise: MyPromise<T>` **
+**此处 `x` 为 `returnValue: any` **
+
+1. 如果 `promise` 和 `x` 指向相同的值, 使用 `TypeError` 做为原因将 `promise` 拒绝
+2. 如果 `x` 是一个 `promise`, 采用其状态：
+   1. 如果 `x` 是 `pending`状态，`promise` 必须保持pending走到`x` `fulfilled`或 `rejected`
+   2. 如果 `x` 是 `fulfilled` 状态，将x的值用于fulfill `promise`
+   3. 如果 `x` 是 `rejected `状态, 将x的原因用于reject `promise`
+3. 如果 `x` 是一个对象或一个函数：
+   1. 将 `then` 赋为 `x.then`
+   2. 如果在取 `x.then` 值时抛出了异常，则以这个异常做为原因将 `promise` 拒绝。
+   3. 如果 `then` 是一个函数， 以 `x` 为 `this 调用 `then 函数， 且第一个参数是`resolvePromise`，第二个参数是 `rejectPromise`
+      1. 当 `resolvePromise` 被以 `y`为参数调用, 执行 `[[Resolve]](promise, y)`
+      2. 当 `rejectPromise` 被以 `r` 为参数调用, 则以 `r` 为原因将 `promise`拒绝
+      3. 如果 `resolvePromise` 和 `rejectPromise` 都被调用了，或者被调用了多次，则只第一次有效，后面的忽略
+      4. 如果在调用 `then` 时抛出了异常，则：
+         1. 如果 `resolvePromise` 或 `rejectPromise` 已经被调用了，则忽略它
+         2. 否则, 以 `e`为 `reason` 将 `promise` 拒绝
+4. 如果 `x` 不是对象也不是函数，则以 `x` 为值 `fulfill promise`
+
+
+下面重点来了：
+
+```typescript
+function resolutionProcedure<T = any>(newMyPromise: MyPromise<T>, returnValue: any, resolve: PromiseResolve<T>, reject: PromiseReject<T | any>) {
+  // 规范 2.3.1，returnValue 不能和 newMyPromise 相同，避免循环引用
+  if (newMyPromise === returnValue) {
+    return reject(new TypeError("Error"));
+  }
+  // 规范 2.3.2 如果 returnValue 为 Promise，状态为 pending 需要继续等待否则执行
+  if (returnValue instanceof MyPromise) {
+    if (returnValue.currentState === PromiseState.PENDING) {
+      returnValue.then(function (value: any) {
+        // 再次调用该函数是为了确认 returnValue resolve 的 参数是什么类型，如果是基本类型就再次 resolve 把值传给下个 then
+        resolutionProcedure(newMyPromise, value, resolve, reject);
+      }, reject);
+    } else {
+      // 规范 2.3.2.2 规范 2.3.2.3  如果 returnValue 为 Promise，状态为 fulfilled 或 rejected ，原因用于相同的状态
+      returnValue.then(resolve, reject);
+    }
+    return;
+  }
+  // 规范 2.3.3.3.3 reject 或者 resolve 其中一个执行过得话，忽略其他的
+  // 所以使用 hasCalled 来标记是否执行过
+  let hasCalled = false;
+  // 规范 2.3.3，判断 returnValue 是否为对象或者函数
+  if (returnValue !== null && (typeof returnValue === "object" || typeof returnValue === "function")) {
+    // 规范 2.3.3.2，如果不能取出 then，就 reject
+    try {
+      // 规范 2.3.3.1
+      let then = returnValue.then;
+      // 如果 then 是函数，调用 returnValue.then，传入新的 resolvePromise 和 rejectPromise 方法
+      if (typeof then === "function") {
+        // 规范 2.3.3.3
+        then.call(
+          returnValue,
+          y => {
+            if (hasCalled) return;
+            hasCalled = true;
+            // 规范 2.3.3.3.1  当 resolvePromise 被以 y 为参数调用, 执行 [[Resolve]](promise, y)
+            resolutionProcedure(newMyPromise, y, resolve, reject);
+          },
+          e => {
+            if (hasCalled) return;
+            hasCalled = true;
+            reject(e);
+          }
+        );
+      } else {
+        // 规范 2.3.3.4
+        resolve(returnValue);
+      }
+    } catch (e) {
+      if (hasCalled) return;
+      hasCalled = true;
+      reject(e);
+    }
+  } else {
+    // 规范 2.3.4，x 为基本类型，则以 x 为值 fulfill promise
+    resolve(returnValue);
+  }
+}
+```
+
+然后把之前 `resolve(returnValue);` 全部注释掉，换成 `resolutionProcedure(newMyPromise, returnValue, resolve, reject);`。
+
+### catch 方法
+
+`then()` 方法的 `onFulfilled` 和 `onRejected` 回调函数都不是必传项
+
+所以如果不传，那么我们就无法接收 `reject(reason)` 中的错误，这时可以通过链式调用 `catch()` 方法用来接收错误。
+
+```typescript
+catch: PromiseCatch<T> = (onRejected: PromiseReject<T>) => {
+  return this.then(null, onRejected);
+}
+```
+
+其实 `then()` 中可以不传 `onRejected`，直接让错误冒泡下 `catch` 就行了。
+
+
+## 总结
+
+```typescript
+// 三种状态
+enum PromiseState {
+  PENDING = 'pending',
+  RESOLVED = 'resolved',
+  REJECTED = 'rejected',
+}
+type PromiseResolve<T = any> = (value?: T) => void;
+type PromiseReject<T = any> = (reason?: T) => void;
+type PromiseThen<T = any> = (onResolved?: PromiseResolve<T>, onRejected?: PromiseReject<T | any>) => MyPromise<T | any>;
+type PromiseCatch<T = any> = (onRejected?: PromiseReject<T | any>) => MyPromise<T | any>;
+type PromiseExecutor<T = any> = (resolve?: PromiseResolve<T>, reject?: PromiseReject<T | any>) => any;
+
+class MyPromise<T = any> {
+  value: T;
+  currentState: PromiseState = PromiseState.PENDING;
+  resolvedCallbacks: PromiseResolve[] = []; // then成功回调
+  rejectedCallbacks: PromiseReject[] = []; // then失败回调
+
+  constructor(fn: PromiseExecutor<T>) {
+    try {
+      fn(this.resolve, this.reject);
+    } catch (e) {
+      this.reject(e);
+    }
+  }
+
+  resolve: PromiseResolve<T> = (value?: T) => {
+    if (value instanceof MyPromise) {
+      // 传入 Promise 实例的话，要向继续下传递
+      // 如果该值 value 是一个 Promise 对象，则直接返回该对象
+      return value.then(this.resolve, this.reject);
+    }
+    // 宏任务代替微任务执行
+    setTimeout(() => {
+      if (this.currentState === PromiseState.PENDING) {
+        this.currentState = PromiseState.RESOLVED;
+        this.value = value;
+        this.resolvedCallbacks.forEach(cb => cb());
+      }
+    });
+  }
+
+  reject: PromiseReject<T> = (reason?: T) => {
+    // 宏任务代替微任务执行
+    setTimeout(() => {
+      if (this.currentState === PromiseState.PENDING) {
+        this.currentState = PromiseState.REJECTED;
+        this.value = reason;
+        this.rejectedCallbacks.forEach(cb => cb());
+      }
+    })
+  }
+
+  then: PromiseThen<T> = (onResolved?: PromiseResolve<T>, onRejected?: PromiseReject<T>): MyPromise<T> => {
+    const that = this;
+    // 规范 2.2.7，then 必须返回一个新的 promise
+    let newMyPromise: MyPromise;
+    // 规范 2.2.onResolved 和 onRejected 都为可选参数
+    // 如果 onResolved 和 onRejected 不是函数则要自行生成新的函数，保证了透传
+    const _onResolved: any = typeof onResolved === 'function' ? onResolved : v => v;
+    const _onRejected: any = typeof onRejected === 'function' ? onRejected : r => { throw r };
+
+    // 初始状态
+    if (this.currentState === PromiseState.PENDING) {
+      newMyPromise = new MyPromise<T>(function (resolve, reject) {
+        that.resolvedCallbacks.push(function () {
+          // 使用 try/catch 如果有报错的话，直接 reject(r)
+          try {
+            var returnValue = _onResolved(that.value);
+            // resolve(returnValue) 本次 Promise 继续 returnValue
+            resolutionProcedure(newMyPromise, returnValue, resolve, reject);
+          } catch (r) {
+            reject(r);
+          }
+        });
+  
+        that.rejectedCallbacks.push(function () {
+          try {
+            var returnValue = _onRejected(that.value);
+            // resolve(returnValue) 本次 Promise 继续 returnValue
+            resolutionProcedure(newMyPromise, returnValue, resolve, reject);
+          } catch (r) {
+            reject(r);
+          }
+        });
+      });
+      return newMyPromise;
+    }
+    // resolved状态
+    if (this.currentState === PromiseState.RESOLVED) {
+      newMyPromise = new MyPromise<T>(function (resolve, reject) {
+        // 规范 2.2.4，为了保证 onFulfilled，onRjected 异步执行 所以用了 setTimeout 包裹下
+        setTimeout(function () {
+          try {
+            var returnValue = _onResolved(this.value);
+            // resolve(returnValue) 本次 Promise 继续 returnValue
+            resolutionProcedure(newMyPromise, returnValue, resolve, reject);
+          } catch (reason) {
+            reject(reason);
+          }
+        });
+      });
+      return newMyPromise;
+    }
+    // rejected状态
+    if (this.currentState === PromiseState.REJECTED) {
+      newMyPromise =  new MyPromise<T>(function (resolve, reject) {
+        setTimeout(function () {
+          // 异步执行onRejected
+          try {
+            var returnValue = _onRejected(this.value);
+            // resolve(returnValue) 本次 Promise 继续 returnValue
+            resolutionProcedure(newMyPromise, returnValue, resolve, reject);
+          } catch (reason) {
+            reject(reason);
+          }
+        });
+      });
+      return newMyPromise;
+    }
+  }
+
+  catch: PromiseCatch<T> = (onRejected: PromiseReject<T>) => {
+    return this.then(null, onRejected);
+  }
+}
+
+// 规范 2.3
+function resolutionProcedure<T = any>(newMyPromise: MyPromise<T>, returnValue: any, resolve: PromiseResolve<T>, reject: PromiseReject<T | any>) {
+  // 规范 2.3.1，returnValue 不能和 newMyPromise 相同，避免循环引用
+  if (newMyPromise === returnValue) {
+    return reject(new TypeError("Error"));
+  }
+  // 规范 2.3.2 如果 returnValue 为 Promise，状态为 pending 需要继续等待否则执行
+  if (returnValue instanceof MyPromise) {
+    if (returnValue.currentState === PromiseState.PENDING) {
+      returnValue.then(function (value: any) {
+        // 再次调用该函数是为了确认 returnValue resolve 的 参数是什么类型，如果是基本类型就再次 resolve 把值传给下个 then
+        resolutionProcedure(newMyPromise, value, resolve, reject);
+      }, reject);
+    } else {
+      // 规范 2.3.2.2 规范 2.3.2.3  如果 returnValue 为 Promise，状态为 fulfilled 或 rejected ，原因用于相同的状态
+      returnValue.then(resolve, reject);
+    }
+    return;
+  }
+  // 规范 2.3.3.3.3 reject 或者 resolve 其中一个执行过得话，忽略其他的
+  // 所以使用 hasCalled 来标记是否执行过
+  let hasCalled = false;
+  // 规范 2.3.3，判断 returnValue 是否为对象或者函数
+  if (returnValue !== null && (typeof returnValue === "object" || typeof returnValue === "function")) {
+    // 规范 2.3.3.2，如果不能取出 then，就 reject
+    try {
+      // 规范 2.3.3.1
+      let then = returnValue.then;
+      // 如果 then 是函数，调用 returnValue.then，传入新的 resolvePromise 和 rejectPromise 方法
+      if (typeof then === "function") {
+        // 规范 2.3.3.3
+        then.call(
+          returnValue,
+          y => {
+            if (hasCalled) return;
+            hasCalled = true;
+            // 规范 2.3.3.3.1  当 resolvePromise 被以 y 为参数调用, 执行 [[Resolve]](promise, y)
+            resolutionProcedure(newMyPromise, y, resolve, reject);
+          },
+          e => {
+            if (hasCalled) return;
+            hasCalled = true;
+            reject(e);
+          }
+        );
+      } else {
+        // 规范 2.3.3.4
+        resolve(returnValue);
+      }
+    } catch (e) {
+      if (hasCalled) return;
+      hasCalled = true;
+      reject(e);
+    }
+  } else {
+    // 规范 2.3.4，x 为基本类型，则以 x 为值 fulfill promise
+    resolve(returnValue);
+  }
+}
+
+const promisex = new MyPromise<number>((resolve, reject) => {
+  setTimeout(() => {
+    resolve(1);
+    reject(33333);
+  }, 200);
+});
+console.log(888888, promisex.currentState);
+promisex.then((value) => {
+  console.log('first then resolve', value, promisex.currentState);
+  return value;
+}).then((value) => {
+  console.log('second then resolve', value, promisex.currentState)
+}).catch(e => console.log('last catch', e));
+console.log(222222, promisex.currentState);
+```
