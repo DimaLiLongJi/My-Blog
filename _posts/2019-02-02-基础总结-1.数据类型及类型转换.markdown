@@ -130,6 +130,29 @@ a += '1' // '11'
 // {} 会被看做代码块所以不执行任何操作
 ```
 
+？？ 问题：`v == 3 && v == 4 && v == 5` 为真
+
+```javascript
+let count = 0;
+const v = {
+    valueOf: () => {
+        if (count === 0) {
+            count = 3;
+            return count;
+        }
+        if (count === 3) {
+            count = 4;
+            return count;
+        }
+        if (count === 4) {
+            count = 5;
+            return count;
+        }
+    }
+};
+v == 3 && v == 4 && v == 5 // true
+```
+
 ### == 操作符
 
 **先左再右计算**
