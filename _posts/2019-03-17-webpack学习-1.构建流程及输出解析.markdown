@@ -1,0 +1,678 @@
+---
+layout:     post
+title:      "webpack学习-1.构建流程及输出解析"
+subtitle:   "webpack学习"
+date:       2019-03-17
+author:     "本人"
+header-img: "img/2019/summary/js.jpeg"
+tags:
+    - 基础总结
+---
+
+
+## webpack的介绍
+
+`webpack` 是一个现代 `JavaScript` 应用程序的静态模块打包器(module bundler)。
+
+当 `webpack` 处理应用程序时，它会**递归地**构建一个依赖关系图(dependency graph)，其中包含应用程序需要的每个模块，然后将所有这些模块打包成一个或多个 bundle。
+
+7个核心概念：
+
+1. Entry：入口，`Webpack` 执行构建的第一步将从 `Entry` 开始解析，可抽象成输入。
+2. Module：模块，在 `Webpack` 里一切皆模块，一个模块对应着一个文件。`Webpack` 会从配置的 `Entry` 开始递归找出所有依赖的模块。
+3. Chunk：代码块，一个 `Chunk` 由多个模块组合而成，**用于代码合并与分割**。
+4. Loader：模块转换器，用于把模块原内容按照需求转换成新内容。
+5. Plugin：扩展插件，在 `Webpack` 构建流程中的特定时机会广播出对应的事件，插件可以监听这些事件的发生，在特定时机做对应的事情。
+6. Compiler： Compiler模块是 `Webpack` 的支柱引擎，它通过 CLI 或 Node API 传递的所有选项，创建出一个 `compilation` 实例。它扩展(extend)自 `Tapable` 类，以便注册和调用插件*。**大多数面向用户的插件首会先在 `Compiler` 上注册**。
+7. Compilation： 模块会被 `Compiler` 用来创建新的编译（或新的构建）。`compilation` 实例能够访问所有的模块和它们的依赖（大部分是循环依赖）。它会对应用程序的依赖图中所有模块进行字面上的编译(literal compilation)。在编译阶段，模块会被加载(loaded)、封存(sealed)、优化(optimized)、分块(chunked)、哈希(hashed)和重新创建(restored)。**可以被认为是 webpack 的实例**
+
+
+## webpack工作流程
+
+webpack 工作流程本质上是个串行执行过程
+
+1. 初始化并合并参数：从配置文件和 `Shell` 语句中读取与合并参数，得出最终的参数；
+2. 开始编译：用上一步得到的参数初始化 `Compiler` ，**加载所有配置的插件**，执行对象的 `run` 方法开始执行编译；
+3. 确定入口：根据配置中的 `entry` 找出所有的入口文件；
+4. 编译模块：从入口文件出发，调用所有匹配的 `Loader` 对模块进行编译，**再找出该模块依赖的模块**，再递归本步骤直到所有入口依赖的文件都经过了本步骤的处理；
+5. 触发事件：`Webpack` 会在特定的时间点触发特定的事件，`Plugin` 在监听到事件后会执行特定的逻辑，插件调用 `Webpack` 提供的 API 改变 `Webpack` 的运行结果；
+6. 完成模块编译：在经过第4步使用 `Loader` 翻译完所有模块后，得到了每个模块被编译后的最终内容以及它们之间的依赖关系；
+7. 输出资源：根据入口和模块之间的依赖关系，组装成一个个包含多个模块的 `Chunk`，再把每个 `Chunk` 转换成一个单独的文件加入到输出列表，**这步是可以修改输出内容的最后机会**；
+8. 输出完成：在确定好输出内容后，根据配置确定输出的路径和文件名，把文件内容写入到文件系统。
+
+![工作流程](/my-blog/img/2019/03/webpack工作流程.png)
+
+
+## 构建流程
+
+三部分：
+
+1. 初始化：启动构建，合并参数加载插件并实例化 `Compiler`
+2. 编译：从 `Entry` 发出，针对每个 `Module` 串行调用对应的 `Loader` 去编译文件内容，再找到该 `Module` 依赖的 `Module`，递归地进行编译处理
+3. 输出：对编译后的 `Module` 组合成 `Chunk`，把 `Chunk` 转换成文件，输出到文件系统
+
+![构建流程](/my-blog/img/2019/03/webpack构建流程.png)
+
+
+## 触发事件
+
+每一个 `plugin` 都是 一个具有 `apply` 属性的类
+
+```javascript
+class MyPlugin {
+  // 这里获取用户为插件传入的配置参数
+  constructor (options) {
+
+  }
+  // webpack 会调用 MPlugin 实例的apply方法 为插件实例传入 compiler 对象
+  apply (compiler) {
+    compiler.plugin('compilation', function (compilation) {
+      // 回调函数中 传入了 compilation 对象
+    });
+    // 监听事件！！
+    compiler.plugin('run', function (compilation, cb) {
+        console.log('run', name)
+        // 每一次重新编译的时候又会触发
+        // compilation.plugin('')
+        cb();
+    });
+    compiler.plugin('done', function (compilation) {
+        console.log('done', name);
+    });
+  }
+}
+```
+
+参考 [插件](https://www.webpackjs.com/api/plugins/)
+
+- 初始化阶段
+
+| 事件名 | 意义 |
+| ------ | ------ |
+| 初始化参数 | 从配置文件和 Shell 语句中读取与合并参数，得出最终的参数。 这个过程中还会执行配置文件中的插件实例化语句 new Plugin() |
+| 实例化Compiler | 用上一步得到的参数初始化 Compiler 实例，Compiler 负责文件监听和启动编译。Compiler 实例中包含了完整的 Webpack 配置，全局只有一个 Compiler 实例 |
+| 加载插件 | 依次调用插件的 apply 方法，让插件可以监听后续的所有事件节点。同时给插件传入 compiler 实例的引用，以方便插件通过 compiler 调用 Webpack 提供的 API |
+| environment | 开始应用 Node.js 风格的文件系统到 compiler 对象，以方便后续的文件寻找和读取 |
+| entryOption | 读取配置的 Entrys，为每个 Entry 实例化一个对应的 EntryPlugin，为后面该 Entry 的递归解析工作做准备 |
+| afterplugins | 调用完所有内置的和配置的插件的 apply 方法 |
+| afterResolvers | 根据配置初始化完 resolver，resolver 负责在文件系统中寻找指定路径的文件 |
+
+- 编译阶段
+
+| 事件名 | 意义 |
+| ------ | ------ |
+| run | 启动一次新的编译。 |
+| watchRun | 和 run 类似，区别在于它是在监听模式下启动的编译，在这个事件中可以获取到是哪些文件发生了变化导致重新启动一次新的编译 |
+| compile | 该事件是为了告诉插件一次新的编译将要启动，同时会给插件带上 compiler 对象 |
+| compilation | 当 Webpack 以开发模式运行时，每当检测到文件变化，一次新的 Compilation 将被创建。一个 Compilation 对象包含了当前的模块资源、编译生成资源、变化的文件等。Compilation 对象也提供了很多事件回调供插件做扩展 |
+| make | 	一个新的 Compilation 创建完毕，即将从 Entry 开始读取文件，根据文件类型和配置的 Loader 对文件进行编译，编译完后再找出该文件依赖的文件，递归的编译和解析 |
+| afterCompile | 一次 Compilation 执行完成 |
+| invalid | 当遇到文件不存在、文件编译错误等异常时会触发该事件，该事件不会导致 Webpack 退出 |
+
+`Compilation` 模块会被 `Compiler` 用来创建新的编译（或新的构建）。
+
+`compilation` 实例能够访问所有的模块和它们的依赖（大部分是循环依赖）。
+
+它会对应用程序的依赖图中所有模块进行字面上的编译(literal compilation)。
+
+在编译阶段，模块会被**加载(loaded)、封存(sealed)、优化(optimized)、分块(chunked)、哈希(hashed)和重新创建(restored)**。
+
+在编译阶段中，最重要的要数 `compilation` 事件了，因为在 `compilation` 阶段调用了 `Loader` 完成了每个模块的转换操作，在 `compilation` 阶段又包括很多小的事件，它们分别是：
+
+| 事件名 | 意义 |
+| ------ | ------ |
+| buildModule | 使用对应的 Loader 去转换一个模块。在模块构建开始之前触发。 |
+| normalModuleLoader | 普通模块 loader，真正（一个接一个地）加载模块图(graph)中所有模块的函数。在用 Loader 对一个模块转换完后，使用 acorn 解析转换后的内容，输出对应的抽象语法树（AST），以方便 Webpack 后面对代码的分析。 |
+| program | 访问代码片段的抽象语法树(AST)。从配置的入口模块开始，分析其 AST，当遇到 require 等导入其它模块语句时，便将其加入到依赖的模块列表，同时对新找出的依赖模块递归分析，最终搞清所有模块的依赖关系。 |
+| seal | 编译(compilation)停止接收新模块时触发。所有模块及其依赖的模块都通过 Loader 转换完成后，根据依赖关系开始生成 Chunk。 |
+
+
+## 编译后的文件
+
+### 普通 esmodule
+
+[参考](https://www.webpackjs.com/guides/getting-started/)
+
+我们来写一个文件，现在我们编分析下编译玩的文件到底生成了啥？
+
+> a.js
+
+```javascript
+export let count = 0;//输出的是值的引用，指向同一块内存
+export const add = ()=>{
+    count++;//此时引用指向的内存值发生改变
+}
+```
+
+> b.js
+
+```javascript
+import { count, add } from './a.js'
+
+console.log(count) //0
+add();
+console.log(count)//1
+```
+
+运行 `webpack --mode=development `
+
+> dist/bundle.js
+
+```javascript
+/******/ (function(modules) { // webpackBootstrap
+/******/ 	// The module cache
+/******/ 	var installedModules = {};
+/******/
+/******/ 	// The require function
+/******/ 	function __webpack_require__(moduleId) {
+/******/
+/******/ 		// Check if module is in cache
+/******/ 		if(installedModules[moduleId]) {
+/******/ 			return installedModules[moduleId].exports;
+/******/ 		}
+/******/ 		// Create a new module (and put it into the cache)
+/******/ 		var module = installedModules[moduleId] = {
+/******/ 			i: moduleId,
+/******/ 			l: false,
+/******/ 			exports: {}
+/******/ 		};
+/******/
+/******/ 		// Execute the module function
+/******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+/******/
+/******/ 		// Flag the module as loaded
+/******/ 		module.l = true;
+/******/
+/******/ 		// Return the exports of the module
+/******/ 		return module.exports;
+/******/ 	}
+/******/
+/******/
+/******/ 	// expose the modules object (__webpack_modules__)
+/******/ 	__webpack_require__.m = modules;
+/******/
+/******/ 	// expose the module cache
+/******/ 	__webpack_require__.c = installedModules;
+/******/
+/******/ 	// define getter function for harmony exports
+/******/ 	__webpack_require__.d = function(exports, name, getter) {
+/******/ 		if(!__webpack_require__.o(exports, name)) {
+/******/ 			Object.defineProperty(exports, name, {
+/******/ 				configurable: false,
+/******/ 				enumerable: true,
+/******/ 				get: getter
+/******/ 			});
+/******/ 		}
+/******/ 	};
+/******/
+/******/ 	// define __esModule on exports
+/******/ 	__webpack_require__.r = function(exports) {
+/******/ 		Object.defineProperty(exports, '__esModule', { value: true });
+/******/ 	};
+/******/
+/******/ 	// getDefaultExport function for compatibility with non-harmony modules
+/******/ 	__webpack_require__.n = function(module) {
+/******/ 		var getter = module && module.__esModule ?
+/******/ 			function getDefault() { return module['default']; } :
+/******/ 			function getModuleExports() { return module; };
+/******/ 		__webpack_require__.d(getter, 'a', getter);
+/******/ 		return getter;
+/******/ 	};
+/******/
+/******/ 	// Object.prototype.hasOwnProperty.call
+/******/ 	__webpack_require__.o = function(object, property) { return Object.prototype.hasOwnProperty.call(object, property); };
+/******/
+/******/ 	// __webpack_public_path__
+/******/ 	__webpack_require__.p = "";
+/******/
+/******/
+/******/ 	// Load entry module and return exports
+/******/ 	return __webpack_require__(__webpack_require__.s = "./b.js");
+/******/ })
+/************************************************************************/
+/******/ ({
+
+/***/ "./a.js":
+/*!**************!*\
+  !*** ./a.js ***!
+  \**************/
+/*! exports provided: count, add */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+eval("__webpack_require__.r(__webpack_exports__);\n/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, \"count\", function() { return count; });\n/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, \"add\", function() { return add; });\nlet count = 0;//输出的是值的引用，指向同一块内存\nconst add = ()=>{\n    count++;//此时引用指向的内存值发生改变\n}\n\n\n//# sourceURL=webpack:///./a.js?");
+
+/***/ }),
+
+/***/ "./b.js":
+/*!**************!*\
+  !*** ./b.js ***!
+  \**************/
+/*! no exports provided */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+eval("__webpack_require__.r(__webpack_exports__);\n/* harmony import */ var _a_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./a.js */ \"./a.js\");\n\n\nconsole.log(_a_js__WEBPACK_IMPORTED_MODULE_0__[\"count\"]) //0\nObject(_a_js__WEBPACK_IMPORTED_MODULE_0__[\"add\"])();\nconsole.log(_a_js__WEBPACK_IMPORTED_MODULE_0__[\"count\"])//1\n\n//# sourceURL=webpack:///./b.js?");
+
+/***/ })
+
+/******/ });
+```
+
+简略下看 其实就是这个屌东西
+
+> dist/bundle.js
+
+```javascript
+(function(modules) {
+
+  // 模拟 require 语句
+  function __webpack_require__() {
+  }
+
+  // 执行存放所有模块数组中的第0个模块
+  __webpack_require__(0);
+
+})([/*存放所有模块的数组*/])
+```
+
+#### __webpack_require__
+
+重点：`function __webpack_require__(moduleId)`
+
+```javascript
+/******/ 	// The require function
+/******/ 	function __webpack_require__(moduleId) {
+/******/
+/******/ 		// Check if module is in cache
+/******/ 		if(installedModules[moduleId]) {
+/******/ 			return installedModules[moduleId].exports;
+/******/ 		}
+/******/ 		// Create a new module (and put it into the cache)
+/******/ 		var module = installedModules[moduleId] = {
+/******/ 			i: moduleId,
+/******/ 			l: false,
+/******/ 			exports: {}
+/******/ 		};
+/******/
+/******/ 		// Execute the module function
+/******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+/******/
+/******/ 		// Flag the module as loaded
+/******/ 		module.l = true;
+/******/
+/******/ 		// Return the exports of the module
+/******/ 		return module.exports;
+/******/ 	}
+```
+
+如果仔细分析 `__webpack_require__` 函数的实现，你还有发现 `Webpack` 做了**缓存优化**： 
+
+**执行加载过的模块不会再执行第二次，执行结果会缓存在内存中，当某个模块第二次被访问时会直接去内存中读取被缓存的返回值。**
+
+1. 函数接收一个参数 `moduleId` 为模块的id
+2. `installedModules[moduleId]` **先检查下缓存**，如果已经加载过了就直接输出该模块
+3. 否则先对缓存模块赋值，然后执行 `modules[moduleId].call(module.exports, module, module.exports, __webpack_require__)` 递归引用
+4. `module.l = true;` 赋值l 作为已加载过，最后返回模块内容
+
+文件能直接运行在浏览器中的原因在于输出的文件中通过 `__webpack_require__` 函数定义了一个可以在浏览器中执行的加载函数来模拟 `Node.js `中的 `require` 语句。
+
+因为浏览器不能直接使用 `commonjs` 和 `esmodule` 所以把所有模块都存放在了数组 `[/*存放所有模块的数组*/]` 中，执行一次网络加载。
+
+### import()
+
+改写下b.js
+
+> b.js
+
+```javascript
+import('./a').then(({ count, add }) => {
+  console.log(count) //0
+  add();
+  onsole.log(count)//1
+})
+```
+重新构建后会输出两个文件，分别是执行入口文件 `bundle.js` 和 异步加载文件 `0.bundle.js`。
+
+入口文件是如何加载 `import()` 文件的？
+
+> dist/bundle.js
+
+```javascript
+/******/ (function(modules) { // webpackBootstrap
+/******/ 	// install a JSONP callback for chunk loading
+/******/ 	function webpackJsonpCallback(data) {
+/******/ 		var chunkIds = data[0];
+/******/ 		var moreModules = data[1];
+/******/
+/******/ 		// add "moreModules" to the modules object,
+/******/ 		// then flag all "chunkIds" as loaded and fire callback
+/******/ 		var moduleId, chunkId, i = 0, resolves = [];
+/******/ 		for(;i < chunkIds.length; i++) {
+/******/ 			chunkId = chunkIds[i];
+/******/ 			if(installedChunks[chunkId]) {
+/******/ 				resolves.push(installedChunks[chunkId][0]);
+/******/ 			}
+/******/ 			installedChunks[chunkId] = 0;
+/******/ 		}
+/******/ 		for(moduleId in moreModules) {
+/******/ 			if(Object.prototype.hasOwnProperty.call(moreModules, moduleId)) {
+/******/ 				modules[moduleId] = moreModules[moduleId];
+/******/ 			}
+/******/ 		}
+/******/ 		if(parentJsonpFunction) parentJsonpFunction(data);
+/******/ 		while(resolves.length) {
+/******/ 			resolves.shift()();
+/******/ 		}
+/******/
+/******/ 	};
+/******/
+/******/
+/******/ 	// The module cache
+/******/ 	var installedModules = {};
+/******/
+/******/ 	// object to store loaded and loading chunks
+/******/ 	// undefined = chunk not loaded, null = chunk preloaded/prefetched
+/******/ 	// Promise = chunk loading, 0 = chunk loaded
+/******/ 	var installedChunks = {
+/******/ 		"main": 0
+/******/ 	};
+/******/
+/******/ 	// script path function
+/******/ 	function jsonpScriptSrc(chunkId) {
+/******/ 		return __webpack_require__.p + "" + chunkId + ".bundle.js"
+/******/ 	}
+/******/
+/******/
+/******/
+/******/ 	// The require function
+/******/ 	function __webpack_require__(moduleId) {
+/******/
+/******/ 		// Check if module is in cache
+/******/ 		if(installedModules[moduleId]) {
+/******/ 			return installedModules[moduleId].exports;
+/******/ 		}
+/******/ 		// Create a new module (and put it into the cache)
+/******/ 		var module = installedModules[moduleId] = {
+/******/ 			i: moduleId,
+/******/ 			l: false,
+/******/ 			exports: {}
+/******/ 		};
+/******/
+/******/ 		// Execute the module function
+/******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+/******/
+/******/ 		// Flag the module as loaded
+/******/ 		module.l = true;
+/******/
+/******/ 		// Return the exports of the module
+/******/ 		return module.exports;
+/******/ 	}
+/******/
+/******/ 	// This file contains only the entry chunk.
+/******/ 	// The chunk loading function for additional chunks
+/******/ 	__webpack_require__.e = function requireEnsure(chunkId) {
+/******/ 		var promises = [];
+/******/
+/******/
+/******/ 		// JSONP chunk loading for javascript
+/******/
+/******/ 		var installedChunkData = installedChunks[chunkId];
+/******/ 		if(installedChunkData !== 0) { // 0 means "already installed".
+/******/
+/******/ 			// a Promise means "currently loading".
+/******/ 			if(installedChunkData) {
+/******/ 				promises.push(installedChunkData[2]);
+/******/ 			} else {
+/******/ 				// setup Promise in chunk cache
+/******/ 				var promise = new Promise(function(resolve, reject) {
+/******/ 					installedChunkData = installedChunks[chunkId] = [resolve, reject];
+/******/ 				});
+/******/ 				promises.push(installedChunkData[2] = promise);
+/******/
+/******/ 				// start chunk loading
+/******/ 				var head = document.getElementsByTagName('head')[0];
+/******/ 				var script = document.createElement('script');
+/******/
+/******/ 				script.charset = 'utf-8';
+/******/ 				script.timeout = 120;
+/******/
+/******/ 				if (__webpack_require__.nc) {
+/******/ 					script.setAttribute("nonce", __webpack_require__.nc);
+/******/ 				}
+/******/ 				script.src = jsonpScriptSrc(chunkId);
+/******/ 				var timeout = setTimeout(function(){
+/******/ 					onScriptComplete({ type: 'timeout', target: script });
+/******/ 				}, 120000);
+/******/ 				script.onerror = script.onload = onScriptComplete;
+/******/ 				function onScriptComplete(event) {
+/******/ 					// avoid mem leaks in IE.
+/******/ 					script.onerror = script.onload = null;
+/******/ 					clearTimeout(timeout);
+/******/ 					var chunk = installedChunks[chunkId];
+/******/ 					if(chunk !== 0) {
+/******/ 						if(chunk) {
+/******/ 							var errorType = event && (event.type === 'load' ? 'missing' : event.type);
+/******/ 							var realSrc = event && event.target && event.target.src;
+/******/ 							var error = new Error('Loading chunk ' + chunkId + ' failed.\n(' + errorType + ': ' + realSrc + ')');
+/******/ 							error.type = errorType;
+/******/ 							error.request = realSrc;
+/******/ 							chunk[1](error);
+/******/ 						}
+/******/ 						installedChunks[chunkId] = undefined;
+/******/ 					}
+/******/ 				};
+/******/ 				head.appendChild(script);
+/******/ 			}
+/******/ 		}
+/******/ 		return Promise.all(promises);
+/******/ 	};
+/******/
+/******/ 	// expose the modules object (__webpack_modules__)
+/******/ 	__webpack_require__.m = modules;
+/******/
+/******/ 	// expose the module cache
+/******/ 	__webpack_require__.c = installedModules;
+/******/
+/******/ 	// define getter function for harmony exports
+/******/ 	__webpack_require__.d = function(exports, name, getter) {
+/******/ 		if(!__webpack_require__.o(exports, name)) {
+/******/ 			Object.defineProperty(exports, name, {
+/******/ 				configurable: false,
+/******/ 				enumerable: true,
+/******/ 				get: getter
+/******/ 			});
+/******/ 		}
+/******/ 	};
+/******/
+/******/ 	// define __esModule on exports
+/******/ 	__webpack_require__.r = function(exports) {
+/******/ 		Object.defineProperty(exports, '__esModule', { value: true });
+/******/ 	};
+/******/
+/******/ 	// getDefaultExport function for compatibility with non-harmony modules
+/******/ 	__webpack_require__.n = function(module) {
+/******/ 		var getter = module && module.__esModule ?
+/******/ 			function getDefault() { return module['default']; } :
+/******/ 			function getModuleExports() { return module; };
+/******/ 		__webpack_require__.d(getter, 'a', getter);
+/******/ 		return getter;
+/******/ 	};
+/******/
+/******/ 	// Object.prototype.hasOwnProperty.call
+/******/ 	__webpack_require__.o = function(object, property) { return Object.prototype.hasOwnProperty.call(object, property); };
+/******/
+/******/ 	// __webpack_public_path__
+/******/ 	__webpack_require__.p = "";
+/******/
+/******/ 	// on error function for async loading
+/******/ 	__webpack_require__.oe = function(err) { console.error(err); throw err; };
+/******/
+/******/ 	var jsonpArray = window["webpackJsonp"] = window["webpackJsonp"] || [];
+/******/ 	var oldJsonpFunction = jsonpArray.push.bind(jsonpArray);
+/******/ 	jsonpArray.push = webpackJsonpCallback;
+/******/ 	jsonpArray = jsonpArray.slice();
+/******/ 	for(var i = 0; i < jsonpArray.length; i++) webpackJsonpCallback(jsonpArray[i]);
+/******/ 	var parentJsonpFunction = oldJsonpFunction;
+/******/
+/******/
+/******/ 	// Load entry module and return exports
+/******/ 	return __webpack_require__(__webpack_require__.s = "./b.js");
+/******/ })
+/************************************************************************/
+/******/ ({
+
+/***/ "./b.js":
+/*!**************!*\
+  !*** ./b.js ***!
+  \**************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+eval("__webpack_require__.e(/*! import() */ 0).then(__webpack_require__.bind(null, /*! ./a */ \"./a.js\")).then(({ count, add }) => {\n  console.log(count) //0\n  add();\n  onsole.log(count)//1\n})\n\n//# sourceURL=webpack:///./b.js?");
+
+/***/ })
+
+/******/ });
+```
+
+核心：`__webpack_require__.e`
+
+```javascript
+/******/ 	// This file contains only the entry chunk.
+/******/ 	// The chunk loading function for additional chunks
+/******/ 	__webpack_require__.e = function requireEnsure(chunkId) {
+/******/ 		var promises = [];
+/******/
+/******/
+/******/ 		// JSONP chunk loading for javascript
+/******/
+/******/ 		var installedChunkData = installedChunks[chunkId];
+/******/ 		if(installedChunkData !== 0) { // 0 means "already installed".
+/******/
+/******/ 			// a Promise means "currently loading".
+/******/ 			if(installedChunkData) {
+/******/ 				promises.push(installedChunkData[2]);
+/******/ 			} else {
+/******/ 				// setup Promise in chunk cache
+/******/ 				var promise = new Promise(function(resolve, reject) {
+/******/ 					installedChunkData = installedChunks[chunkId] = [resolve, reject];
+/******/ 				});
+/******/ 				promises.push(installedChunkData[2] = promise);
+/******/
+/******/ 				// start chunk loading
+/******/ 				var head = document.getElementsByTagName('head')[0];
+/******/ 				var script = document.createElement('script');
+/******/
+/******/ 				script.charset = 'utf-8';
+/******/ 				script.timeout = 120;
+/******/
+/******/ 				if (__webpack_require__.nc) {
+/******/ 					script.setAttribute("nonce", __webpack_require__.nc);
+/******/ 				}
+/******/ 				script.src = jsonpScriptSrc(chunkId);
+/******/ 				var timeout = setTimeout(function(){
+/******/ 					onScriptComplete({ type: 'timeout', target: script });
+/******/ 				}, 120000);
+/******/ 				script.onerror = script.onload = onScriptComplete;
+/******/ 				function onScriptComplete(event) {
+/******/ 					// avoid mem leaks in IE.
+/******/ 					script.onerror = script.onload = null;
+/******/ 					clearTimeout(timeout);
+/******/ 					var chunk = installedChunks[chunkId];
+/******/ 					if(chunk !== 0) {
+/******/ 						if(chunk) {
+/******/ 							var errorType = event && (event.type === 'load' ? 'missing' : event.type);
+/******/ 							var realSrc = event && event.target && event.target.src;
+/******/ 							var error = new Error('Loading chunk ' + chunkId + ' failed.\n(' + errorType + ': ' + realSrc + ')');
+/******/ 							error.type = errorType;
+/******/ 							error.request = realSrc;
+/******/ 							chunk[1](error);
+/******/ 						}
+/******/ 						installedChunks[chunkId] = undefined;
+/******/ 					}
+/******/ 				};
+/******/ 				head.appendChild(script);
+/******/ 			}
+/******/ 		}
+/******/ 		return Promise.all(promises);
+/******/ 	};
+```
+
+`webpackJsonpCallback`：
+
+```javascript
+/******/ 	function webpackJsonpCallback(data) {
+/******/ 		var chunkIds = data[0];
+/******/ 		var moreModules = data[1];
+/******/
+/******/ 		// add "moreModules" to the modules object,
+/******/ 		// then flag all "chunkIds" as loaded and fire callback
+/******/ 		var moduleId, chunkId, i = 0, resolves = [];
+/******/ 		for(;i < chunkIds.length; i++) {
+/******/ 			chunkId = chunkIds[i];
+/******/ 			if(installedChunks[chunkId]) {
+/******/ 				resolves.push(installedChunks[chunkId][0]);
+/******/ 			}
+/******/ 			installedChunks[chunkId] = 0;
+/******/ 		}
+/******/ 		for(moduleId in moreModules) {
+/******/ 			if(Object.prototype.hasOwnProperty.call(moreModules, moduleId)) {
+/******/ 				modules[moduleId] = moreModules[moduleId];
+/******/ 			}
+/******/ 		}
+/******/ 		if(parentJsonpFunction) parentJsonpFunction(data);
+/******/ 		while(resolves.length) {
+/******/ 			resolves.shift()();
+/******/ 		}
+/******/
+/******/ 	};
+```
+
+这里的 `bundle.js` 和上面所讲的非常相似，区别在于：
+
+1. 多了一个 `__webpack_require__.e` 用于加载被分割出去的，需要异步加载的 `Chunk` 对应的文件;
+2. 多了一个 `webpackJsonpCallback` 函数用于从异步加载的文件中安装模块。
+3. 在使用了 `CommonsChunkPlugin` 去提取公共代码时输出的文件和使用了异步加载时输出的文件是一样的，都会有 `__webpack_require__.e` 和 `webpackJsonpCallback`。 原因在于提取公共代码和异步加载本质上都是代码分割。
+
+
+## Webpack事件流
+
+Webpack 的整个编译过程就是一条生产线，要经过一系列处理流程后才能将源文件转换成输出结果
+
+这条生产线上的每个处理流程的职责都是单一的，多个流程之间有存在依赖关系，**只有完成当前处理后才能交给下一个流程去处理**。
+
+插件就像是一个插入到生产线中的一个观察者，通过订阅 Webpack 的事件来更改输出的结果。
+
+Webpack 通过 `Tapable` 来组织这条复杂的生产线。
+
+Webpack 在运行过程中会推送事件，插件只需要监听它所关心的事件，就能加入到这条生产线中，去改变生产线的运作。
+
+Webpack 的事件流机制保证了插件的有序性，使得整个系统扩展性很好。
+
+Webpack 的事件流机制应用了**观察者模式**，和 `Node.js` 中的 `EventEmitter` 非常相似。
+
+`Compiler` 和 `Compilation` 都继承自 `Tapable`，可以直接在 `Compiler` 和 `Compilation` 对象上广播和监听事件，方法如下：
+
+```javascript
+/**
+* 广播出事件
+* event-name 为事件名称，注意不要和现有的事件重名
+* params 为附带的参数
+*/
+compiler.apply('event-name',params);
+
+/**
+* 监听名称为 event-name 的事件，当 event-name 事件发生时，函数就会被执行。
+* 同时函数中的 params 参数为广播事件时附带的参数。
+*/
+compiler.plugin('event-name',function(params) {
+
+});
+```
+
+注意以下三点：
+
+1. 只要能拿到 `Compiler` 或 `Compilation` 对象，就能广播出新的事件，所以在新开发的插件中也能广播出事件，给其它插件监听使用。
+2. 传给每个插件的 `Compiler` 和 `Compilation` 对象都是同一个引用。也就是说在一个插件中修改了 `Compiler` 或 `Compilation` 对象上的属性，会影响到后面的插件。
+3. **有些事件是异步的**，这些异步的事件会附带两个参数，第二个参数为回调函数，在插件处理完任务时需要调用回调函数通知 `Webpack`，才会进入下一处理流程
