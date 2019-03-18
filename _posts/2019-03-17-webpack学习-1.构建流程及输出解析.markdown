@@ -64,7 +64,7 @@ class MyPlugin {
   constructor (options) {
 
   }
-  // webpack 会调用 MPlugin 实例的apply方法 为插件实例传入 compiler 对象
+  // webpack 会调用 MyPlugin 实例的apply方法 为插件实例传入 compiler 对象
   apply (compiler) {
     compiler.plugin('compilation', function (compilation) {
       // 回调函数中 传入了 compilation 对象
