@@ -631,9 +631,10 @@ eval("__webpack_require__.e(/*! import() */ 0).then(__webpack_require__.bind(nul
 
 这里的 `bundle.js` 和上面所讲的非常相似，区别在于：
 
-1. 多了一个 `__webpack_require__.e` 用于加载被分割出去的，需要异步加载的 `Chunk` 对应的文件;
-2. 多了一个 `webpackJsonpCallback` 函数用于从异步加载的文件中安装模块。
-3. 在使用了 `CommonsChunkPlugin` 去提取公共代码时输出的文件和使用了异步加载时输出的文件是一样的，都会有 `__webpack_require__.e` 和 `webpackJsonpCallback`。 原因在于提取公共代码和异步加载本质上都是代码分割。
+1. 多了一个 `__webpack_require__.e` 用于加载被分割出去的，需要异步加载的 `Chunk` 对应的文件
+2. 可以看到 `var script = document.createElement('script');` `script.src = jsonpScriptSrc(chunkId);` `head.appendChild(script);` **动态 `import()` 其实是创建了一个 `<script>` 然后用来引入脚本**
+3. 多了一个 `webpackJsonpCallback` 函数用于从异步加载的文件中安装模块
+4. 在使用了 `CommonsChunkPlugin` 去提取公共代码时输出的文件和使用了异步加载时输出的文件是一样的，都会有 `__webpack_require__.e` 和 `webpackJsonpCallback`。原因在于提取公共代码和异步加载本质上都是代码分割。
 
 
 ## Webpack事件流
