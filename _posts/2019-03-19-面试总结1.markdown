@@ -11,15 +11,15 @@ tags:
 
 ## Index
 
- - [1. 写 React / Vue 项目时为什么要在组件中写 key，其作用是什么]()
- - [2. ['1', '2', '3'].map(parseInt) 解析]()
- - [3. 节流和防抖的个人见解]()
- - [4. Set、Map、WeakSet 和 WeakMap 的区别]()
- - [5. 深度优先遍历和广度优先遍历及实现]()
- - [6. ES5/ES6 的继承除了写法以外还有什么区别？]()
- - [7. setTimeout、Promise、Async/Await 的区别]()
- - [8. Async/Await 如何通过同步的方式实现异步]()
- - [9. 一道异步笔试题]()
+ - [1. 写 React / Vue 项目时为什么要在组件中写 key，其作用是什么](#1-写-react--vue-项目时为什么要在组件中写-key其作用是什么)
+ - [2. ['1', '2', '3'].map(parseInt) 解析](#2-1-2-3mapparseint-解析)
+ - [3. 节流和防抖的个人见解](#3-节流和防抖的个人见解)
+ - [4. Set、Map、WeakSet 和 WeakMap 的区别](#4-setmapweakset-和-weakmap-的区别)
+ - [5. 深度优先遍历和广度优先遍历及实现](#5-深度优先遍历和广度优先遍历及实现)
+ - [6. ES5/ES6 的继承除了写法以外还有什么区别？](#6-es5es6-的继承除了写法以外还有什么区别)
+ - [7. setTimeout、Promise、Async/Await 的区别](#7-settimeoutpromiseasyncawait-的区别)
+ - [8. Async/Await 如何通过同步的方式实现异步](#8-asyncawait-如何通过同步的方式实现异步)
+ - [9. 一道异步笔试题](#9-一道异步笔试题)
 
 
 ### 1. 写 React / Vue 项目时为什么要在组件中写 key，其作用是什么
