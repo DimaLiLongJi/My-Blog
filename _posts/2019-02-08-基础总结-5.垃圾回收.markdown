@@ -79,3 +79,78 @@ enum AllocationSpace {
 清除对象后会造成**堆内存出现碎片**的情况，当碎片超过一定限制后会启动压缩算法。
 
 **在压缩过程中，将活的对象像一端移动，直到所有对象都移动完成然后清理掉不需要的内存。**
+
+
+## 内存泄露
+
+内存泄露指变量无法被垃圾回收，一直存在于内存之中。
+
+一般造成内存泄露的原因有下面4点：
+
+### 闭包
+
+js引擎的逃逸分析会分析闭包所使用的变量，将闭包所引用的变量存在内存中，从而避免在闭包函数调用时，变量被垃圾回收。
+
+```javascript
+function parentFn() {
+  const a = 1;
+  const b = 2;
+  return function() {
+    console.log(b);
+  }
+}
+const childFn = parentFn();
+childFn(); // 2
+```
+
+上书例子中，`parentFn` 中的 `b` 就会被js引擎给存下，而 `a` 则因为逃逸分析失败在函数执行完后被清理。
+
+### 意外的全局变量
+
+在**非严格模式**中，函数中不使用关键字声明的变量，无论是否有闭包引用，都会被提升到全局变量。
+
+```javascript
+function parentFn() {
+  a = 1;
+}
+parentFn();
+console.log(a); // 1
+```
+
+### 未清理的定时器
+
+很容易理解，计时器如果不清理，任务将一直执行。
+
+计时器中引用的变量也无法被垃圾回收。
+
+```javascript
+var someResource = getData();
+setInterval(function() {
+    var node = document.getElementById('Node');
+    if(node) {
+        node.innerHTML = JSON.stringify(someResource));
+    }
+}, 1000);
+```
+
+### 为清理的DOM引用
+
+```javascript
+var elements = {
+    button: document.getElementById('button'),
+    image: document.getElementById('image'),
+    text: document.getElementById('text')
+};
+function doStuff() {
+    image.src = 'http://some.url/image';
+    button.click();
+    console.log(text.innerHTML);
+}
+doStuff();
+function removeButton() {
+    document.body.removeChild(document.getElementById('button'));
+}
+removeButton()
+```
+
+当执行 `removeButton()` 之后，HTML 中已经没有 `#button`，但该 DOM 也无法消失，因为引用仍被 `elements` 所持有。

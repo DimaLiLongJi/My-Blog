@@ -419,6 +419,57 @@ static reject: PromiseStaticReject = <T>(value: T) => {
 ```
 
 
+## 关于 then
+
+1. `then` 方法 `onResolved` 返回非 `Promise` 的时候，会将返回值透传到下一个 `then` 中
+
+```javascript
+Promise.resolve(1).then((v) => {
+	console.log(11, v); // 1
+	return 2;
+}).then((v) => {
+console.log(22, v); // 2
+}, (e) => {
+  console.log(4444, e) // !!不会执行
+});
+```
+
+2. `then` 方法 `onResolved` 返回 `Promise` 的时候，会等待返回 `Promise` 的状态变更后再透传到下一个 `then` 中
+
+```javascript
+Promise.resolve(1).then((v) => {
+	console.log(11, v); // 1
+	return new Promise((r) => {
+		setTimeout(() => {
+			r(2);
+		}, 3000);
+	});
+}).then((v) => {
+console.log(22, v); // 2 !!但是是3000ms后才显示
+})
+```
+
+3. `then` 方法中如果定义了 `onRejected` 的时候，错误不会被透传到 `catch` 中，而且会将 `onRejected` 的返回值透传到下一个 `then` 中
+
+```javascript
+Promise.resolve(1).then((v) => {
+	console.log(11, v); // 1
+	return new Promise((r,j) => {
+		setTimeout(() => j(2), 3000);
+	});
+}).then((v) => {
+console.log(22, v); // !!不会执行
+}, (e) => {
+  console.log(33, e) // 2
+  return 3;
+}).then(v => {
+  console.log(44, v); // 3
+}).catch(e => {
+	console.log(55, e); // !!不会执行
+})
+```
+
+
 ## 总结
 
 其实所有难点其实都在 `then` 的实现，这里面需要对源 `Promise` 的状态做判断，并影响接下来返回的新 `Promise`。

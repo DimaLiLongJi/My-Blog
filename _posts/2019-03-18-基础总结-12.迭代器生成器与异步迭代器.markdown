@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "基础总结-12.生成器与异步迭代器"
+title:      "基础总结-12.迭代器生成器与异步迭代器"
 subtitle:   "js 基础总结"
 date:       2019-03-18
 author:     "本人"
@@ -23,7 +23,7 @@ tags:
 
 这时，`done` 的值为 `true`，`value` 的值一般为 `undefined`，需要根据 `iterator` 的实际实现来决定。
 
-### 实现一个迭代器
+### 简单实现一个迭代器类
 
 - `private point: number = 0` 指针 初始为0
 - `private params: any[] | Object` 传入可迭代数据
@@ -64,25 +64,25 @@ console.log(4, iterator.next()); // 4 { done: true, value: undefined }
 
 ### iterator接口
 
-**`for...in` 与 `for...of` 区别
+**首先介绍下 `for...in` 与 `for...of` 区别**
 
 1. 推荐在循环对象属性的时候，使用 `for...in` ,在遍历数组的时候的时候使用 `for...of`。
 2. **`for...in` 循环出的是 `key` ，`for...of` 循环出的是 `value`**
 3. `for...of` 是ES6新引入的特性。修复了ES5引入的 `for...in` 的不足
-4. **`for...of` 不能循环普通的对象**，需要通过和 `Object.keys()` 搭配使用
+4. **`for...of` 不能循环没有 `[Symbol.iterator]` 属性的对象**，需要通过和 `Object.keys()` 搭配使用
 
-部署了 `iterator` 接口的数据结构，也就是具有 `Symbol.iterator` 方法的数据结构，就可以被 `for...of` 遍历。
+拥有了 `iterator` 接口的数据结构，也就是具有 `Symbol.iterator` 方法的数据结构，就可以被 `for...of` 遍历。
 
 `Symbol.iterator` 方法类似于上面实现的 `MyIterator`。
 
 1. 数组天生部署了迭代器接口
 
 ```javascript
-const arr = [1, 2, 3]
+const arr = [1, 2, 3];
 typeof arr[Symbol.iterator] // 'function'
 
 for (const val of arr) {
-    console.log(val)
+    console.log(val);
 }
 // 1
 // 2
@@ -92,32 +92,31 @@ for (const val of arr) {
 2. 对象没有迭代器接口
 
 ```javascript
-const obj = {a: 'a', b: 'b', c: 'c'}
+const obj = {a: 'a1', b: 'b1', c: 'c1'};
 typeof obj[Symbol.iterator] // 'undefined'
 
 for (const val of obj) {
-    console.log(val)
+    console.log(val);
 }
 // VM974:4 Uncaught TypeError: obj is not iterable
 
 obj[Symbol.iterator] = function() {
-    const self = this
-    const keys = Object.keys(self)
-    const len = keys.length
-    let pointer = 0
+    const keys = Object.keys(this);
+    const len = keys.length;
+    let pointer = 0;
     return {
         next() {
-            const done = pointer >= len
-            const value = !done ? self[keys[pointer++]] : undefined
+            const done = pointer >= len;
+            const value = !done ? self[this[pointer++]] : undefined;
             return {
                 value,
                 done
-            }
+            };
         }
     }
 }
 for (const val of obj) {
-    console.log(val)
+    console.log(val);
 }
 // 'a'
 // 'b'
@@ -136,24 +135,24 @@ for (const val of obj) {
 
 ```javascript
 function* generator() {
-  yield 1
-  yield 2
-  return 3
+  yield 1;
+  yield 2;
+  return 3;
 }
-const myIterator = generator()
+const myIterator = generator();
 // 当调用iterator的next方法时，函数体开始执行，
-myIterator.next() // {value: 1, done: false}
-myIterator.next() // {value: 2, done: false}
-myIterator.next() // {value: 3, done: true}
+myIterator.next(); // {value: 1, done: false}
+myIterator.next(); // {value: 2, done: false}
+myIterator.next(); // {value: 3, done: true}
 
 for (const val of myIterator) {
-    console.log(val)
+    console.log(val);
 }
 ```
 
 当 `for...of` 之后，迭代器的状态会关闭。
 
-### 中序遍历
+### 实现个中序遍历
 
 ```javascript
 function* traverseTree(node) {
@@ -166,29 +165,42 @@ function* traverseTree(node) {
 
 ### gennerator嵌套
 
- **生成器函数中使用生成器函数 需要使用 `*`**
+**生成器函数中使用生成器函数 需要使用 `*`**
+
+当我们想在generator b中嵌套generator a时，怎么嵌套呢？
+
+`yield *a(); ==> yield 1`，实际上就是把 `yield 1` 放在这个位置
+
+所以在**生成器函数中使用生成器函数 需要使用 `*`**
 
 ```javascript
 function* a(){
-    yield 1
+    yield 1;
 }
 function* b(){
-    // 1. 当我们想在generator b中嵌套generator a时，怎么嵌套呢？
-    // 2. yield *a(); ==> yield 1，实际上就是把yield 1 放在这个位置
-    //    在生成器函数中使用生成器函数 需要使用 *
-    yield *a()
-    yield 2
+    yield* a();
+    yield 2;
 }
-let it = b()
-console.log(it.next())
+let it = b();
+console.log(it.next()); // { value: 1, done: false }
 ```
 
 ### 实现异步迭代
 
 ```javascript
 // ajax 是一个返回 Promise 的函数
+function ajaxName() {
+  return Promise.resolve('测试');
+}
+function ajaxSex() {
+  return Promise.resolve('男');
+}
+function ajaxSchool() {
+  return Promise.resolve('辽宁大学');
+}
+
 function * fetchInfo () {
-  const user = yield ajaxUser();
+  const name = yield ajaxName();
   const sex = yield ajaxSex();
   const school = yield ajaxSchool();
 }
@@ -196,26 +208,85 @@ function * fetchInfo () {
 const info = fetchInfo();
 
 // 加入的控制代码
-const user = info.next().value; // 返回 Promise
-user.then((user) => {
-  const sex = info.next().value; // 返回 Promise
-  return sex;
+info.next().value.then(name => {
+  console.log(name); // 测试
+  const sexPromise = info.next().value;
+  return sexPromise;
 }).then(sex => {
-  const school = info.next().value; // 返回 Promise
-  return school;
+  console.log(sex); // 男
+  const schoolPromise = info.next().value;
+  return schoolPromise;
+}).then(school => {
+  console.log(school); // 辽宁大学
 });
 ```
 
 
 ## async/await 异步迭代器
 
-更改下上面的异步迭代器
+- `async/await` 其实相当于简化了 `Generator`
+
+更改下上面的异步迭代器：
+
+```javascript
+// 相同
+async function fetchInfo () {
+  const name = await ajaxName();
+  console.log(name); // 测试
+  const sex = await ajaxSex();
+  console.log(sex); // 男
+  const school = await ajaxSchool();
+  console.log(school); // 辽宁大学
+}
+```
+
+- `await` 只能用在 `async` 关键词的函数中
+
+- `async` 函数返回一个 `Promise`
+
+- `async/await` 相当于封装了 `Promise`
+
+### await 到底在等啥？
+
+[MDN文档](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Operators/await)
+
+还是这个例子：
 
 ```javascript
 async function fetchInfo () {
-  const user = await ajaxUser();
+  const name = await ajaxName();
+  console.log(name); // 测试
   const sex = await ajaxSex();
+  console.log(sex); // 男
   const school = await ajaxSchool();
+  console.log(school); // 辽宁大学
+}
+```
+
+1. `await` 表达式会暂停当前 `async function` 的执行，等待 `Promise` 处理完成。
+2. 若 `Promise` 正常处理(fulfilled)，其**构造函数第一个参数 `resolve` 函数的参数（`resolve(value)`）**作为 `await` 表达式的值，继续执行 `async function`。
+3. 若 `Promise` 处理异常(rejected)，`await` 表达式会把 `Promise` 的异常原因抛出。
+4. 另外，如果 `await` 操作符后的表达式的值不是一个 `Promise`，则返回该值本身。**`a = await 10` a就是10**
+
+
+上面的异步函数相当于：
+
+```javascript
+function fetchInfo() {
+  let name, sex, school, result;
+
+  return ajaxName().then(name => {
+    name = name;
+    console.log(name); // 测试
+    return ajaxSex();
+  }).then(sex => {
+    sex = sex;
+    console.log(sex); // 男
+    return ajaxSchool();
+  }).then(school => {
+    school = school;
+    console.log(school); // 辽宁大学
+  });
 }
 ```
 
@@ -226,15 +297,20 @@ async function fetchInfo () {
 比如如下代码，我们需要遍历获取 `redis` 中存储的100个用户的信息：
 
 ```javascript
-const users=[]
-for (var i=0;i<ids.length;i++) {
-  users.push(await db.get(ids))
+const ids = [1,2,3,4];
+const users=[];
+for (let i=0;i<ids.length;i++) {
+  users.push(await db.get(ids));
 }
 ```
 
-由于每次数据库读取操作都要消耗时间，这个接口将会变得非常慢。如果我们把它变成一个并行的操作，将会极大提升效率
+由于每次数据库读取操作都要消耗时间，这个接口将会变得非常慢。
+
+如果我们把它变成一个并行的操作，将会极大提升效率
 
 ```javascript
+const ids = [1,2,3,4];
+const users=[];
 const p = ids.map(async (id) => await db.get(id)); // any[]
 const users = await Promise.all(p); // any[]
 ```
@@ -242,6 +318,6 @@ const users = await Promise.all(p); // any[]
 
 ## 总结
 
-1. `Iterator` 是一个循环接口，任何实现了此接口的数据都可以被 `for...in` 循环遍历
-2. `Generator` 是一个可以暂停和继续执行的函数，他可以完全实现 `Iterator` 的功能，并且由于可以保存上下文，他非常适合实现简单的状态机。另外通过一些流程控制代码的配合，可以比较容易进行异步操作。
-3. `Async/Await` 就是 `Generator` 进行异步操作的语法糖。返回 `Promise` 的函数。
+1. `Iterator` 是一个循环接口，任何实现了此接口的数据都可以被 `for...of` 循环遍历
+2. `Generator` 是一个可以暂停和继续执行的函数，可以完全实现 `Iterator` 的功能，并且由于可以保存上下文，非常适合实现简单的状态机。另外通过一些流程控制代码的配合，可以比较容易进行异步操作。
+3. `Async/Await` 就是 `Generator` 进行异步操作的语法糖 或是封装了 `Promise`。返回值为 `Promise` 的函数。
