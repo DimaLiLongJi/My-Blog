@@ -6,7 +6,6 @@ date:       2018-03-19
 author:     "本人"
 header-img: "img/2018/03/angularJs.jpeg"
 tags:
-    - 前端开发
     - Angular
 ---
 

@@ -210,12 +210,10 @@ const info = fetchInfo();
 // 加入的控制代码
 info.next().value.then(name => {
   console.log(name); // 测试
-  const sexPromise = info.next().value;
-  return sexPromise;
+  return info.next().value;
 }).then(sex => {
   console.log(sex); // 男
-  const schoolPromise = info.next().value;
-  return schoolPromise;
+  return info.next().value;
 }).then(school => {
   console.log(school); // 辽宁大学
 });
@@ -273,7 +271,7 @@ async function fetchInfo () {
 
 ```javascript
 function fetchInfo() {
-  let name, sex, school, result;
+  let name, sex, school;
 
   return ajaxName().then(name => {
     name = name;

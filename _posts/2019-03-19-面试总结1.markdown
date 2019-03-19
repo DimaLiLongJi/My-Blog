@@ -1,0 +1,442 @@
+---
+layout:     post
+title:      "面试总结"
+subtitle:   "面试总结1"
+date:       2019-03-19
+author:     "本人"
+header-img: "img/2019/summary/js.jpeg"
+tags:
+    - 面试总结
+---
+
+## Index
+
+ - [1. 写 React / Vue 项目时为什么要在组件中写 key，其作用是什么]()
+ - [2. ['1', '2', '3'].map(parseInt) 解析]()
+ - [3. 节流和防抖的个人见解]()
+ - [4. Set、Map、WeakSet 和 WeakMap 的区别]()
+ - [5. 深度优先遍历和广度优先遍历及实现]()
+ - [6. ES5/ES6 的继承除了写法以外还有什么区别？]()
+ - [7. setTimeout、Promise、Async/Await 的区别]()
+ - [8. Async/Await 如何通过同步的方式实现异步]()
+ - [9. 一道异步笔试题]()
+
+
+### 1. 写 React / Vue 项目时为什么要在组件中写 key，其作用是什么
+
+[vue diff](https://github.com/vuejs/vue/blob/dev/src/core/vdom/patch.js#L424)
+
+`vue` 和 `react` 都是采用 `diff` 算法来对比新旧虚拟节点，从而更新节点。在 `vue` 的 `diff` 函数中。可以先了解一下 `diff`算法。
+
+在交叉对比的时候，当新节点跟旧节点头尾交叉对比没有结果的时候，会根据新节点的 `key` 去对比旧节点数组中的 `key` ，从而找到相应旧节点（这里对应的是一个 `key` => `index` 的 `map` 映射）。
+
+如果没找到就认为是一个新增节点。
+
+而如果没有 `key`，那么就会采用一种遍历查找的方式去找到对应的旧节点。
+
+一种一个 `map` 映射，另一种是遍历查找。相比而言。`map` 映射的速度更快。
+
+### 2. ['1', '2', '3'].map(parseInt) 解析
+
+`['1', '2', '3'].map(parseInt)` 输出 `1, NaN, NaN`。
+
+先看 `map` 的参数 `function(currentValue[, index[, array])` ，参数分别为 当前遍历的值，索引，被遍历的数组。
+
+`parseInt` 的参数 `string, radix`。其中 `radix` 为数字 **2-36**，默认为0，将按照 `radix` 的几进制解析为十进制。如果它以 `0x` 或 `0X` 开头，将以 `16` 为基数。
+
+1. `parseInt('1', 0)` radix为0时，且string参数不以“0x”和“0”开头时，按照10为基数处理。这个时候返回1
+2. `parseInt('2', 1)` 不存在1进制，所以无法解析，返回NaN
+3. `parseInt('3', 2)` 基数为2（2进制）表示的数中，不能以3开头，所以无法解析，返回NaN
+
+最后因为 `radix` 不存在 返回 `NaN`，2进制不存在3，返回 `NaN`。
+
+### 3. 节流和防抖的个人见解
+
+#### 节流
+
+高频事件触发，但在**n秒内只会执行一次**，所以节流会稀释函数的执行频率
+
+```javascript
+function throttle(fn) {
+  let canRun = true; // 通过闭包保存一个标记
+  return function () {
+    if (!canRun) return; // 在函数开头判断标记是否为true，不为true则return
+    canRun = false; // 立即设置为false
+    setTimeout(() => { // 将外部传入的函数的执行放在setTimeout中
+      fn.apply(this, arguments);
+      // 最后在setTimeout执行完毕后再把标记设置为true(关键)表示可以执行下一次循环了。当定时器没有执行的时候标记永远是false，在开头被return掉
+      canRun = true;
+    }, 500);
+  };
+}
+```
+
+#### 防抖
+
+高频事件触发，但在n**秒后才会执行一次**
+
+```javascript
+function debounce(fn) {
+  let timeout = null; // 创建一个标记用来存放定时器的返回值
+  return function() {
+    if (timeout) clearTimeout(timeout); // 每当用户输入的时候把前一个 setTimeout clear 掉
+    timeOut = setTimeout(() => { // 然后又创建一个新的 setTimeout, 这样就能保证输入字符后的 interval 间隔内如果还有字符输入的话，就不会执行 fn 函数
+        fn.apply(this, arguments);
+      }, 500);
+    };
+  }
+}
+```
+
+### 4. Set、Map、WeakSet 和 WeakMap 的区别
+
+- `Set`
+1. 成员不能重复
+2. 只有键值没有键名，类似数组
+3. 可以遍历，方法有`add, delete,has,forEach`
+
+- `WeakSet`
+1. **成员都是对象**
+2. 成员都是弱引用，随时可以消失。**可以用来保存DOM节点，不容易造成内存泄漏**
+3. 不能遍历，方法有`add, delete,has`
+
+- `Map`
+1. 本质上是健值对的集合，类似集合
+2. 可以遍历，方法很多，可以干跟各种数据格式转换
+
+- `WeakMap`
+1. **直接受对象作为健名（`null`除外），不接受其他类型的值作为健名**
+2. 健名所指向的对象，不计入垃圾回收机制**键名是弱引用对象，而值可以是任意类型** `WeakMap` 的 `key` 是不可枚举的
+3. 不能遍历，方法同`get,set,has,delete`
+
+### 5. 深度优先遍历和广度优先遍历及实现
+
+- 深度优先遍历 DFS
+
+与树的先序遍历比较类似。
+
+假设初始状态是图中所有顶点均未被访问，则从某个顶点v出发，首先访问该顶点然后**依次从它的各个未被访问的邻接点出发深度优先搜索遍历图**
+
+直至图中所有和v有路径相通的顶点都被访问到。
+
+若此时尚有其他顶点未被访问到，则另选一个未被访问的顶点作起始点，重复上述过程，直至图中所有顶点都被访问到为止。
+
+**利用栈先入后出遍历比较好**
+
+```javascript
+function deepTraversalA(node, nodeList = []) {
+  if (node) {
+    nodeList.push(node);
+    let children = node.children;
+    const length = children.length -1;
+    for (let i = length; i >=0; i--) {
+      deepTraversalA(children[i], nodeList);
+    }
+  }
+  return nodeList;
+}
+
+function deepTraversalB(node) {
+  let nodeList = [];
+  if (node) {
+    nodeList.push(node);
+    let children = node.children;
+    const length = children.length -1;
+    for (let i = length; i >=0; i--) {
+      nodeList.concat(deepTraversalB(children[i]));
+    }
+  }
+  return nodeList;
+}
+
+function deepTraversalC(node) {
+  const stack = [];
+  const nodeList = [];
+  if (node) {
+    stack.push(node);
+    while(stack.length) {
+      const item = stack.pop(); // 出栈并返回
+      const children = item.children;
+      const length = children.length - 1;
+      nodes.push(item)
+      for (let i = length; i >=0; i--) {
+        stach.push(children[i]); // 子node会持续进入栈中成为下一轮循环的起始点
+      }
+    }
+  }
+  return nodeList;
+}
+```
+
+- 广度优先遍历 BFS
+
+从图中某顶点v出发，在访问了v之后依次访问v的各个未曾访问过的邻接点，
+
+然后分别从这些邻接点出发依次访问它们的邻接点，并使得**先被访问的顶点的邻接点先于后被访问的顶点的邻接点被访问**，
+
+直至图中所有已被访问的顶点的邻接点都被访问到。
+
+如果此时图中尚有顶点未被访问，则需要另选一个未曾被访问过的顶点作为新的起始点，重复上述过程，直至图中所有顶点都被访问到为止。
+
+**利用队列先入先出遍历比较好**
+
+```javascript
+function widthTraversal(node) {
+  const eqeue = [];
+  const nodeList = [];
+  if (node) {
+    eqeue.push(node);
+    while (eqeue.length) {
+      const head = eqeue.shift(); // 出队列
+      const children = head.children;
+      const length = children.length;
+      nodes.push(head);
+      for (let i = 0; i < length; i++) {
+        eqeue.push(children[length]); // 子node如队列
+      }
+    }
+  }
+}
+```
+
+### 6. ES5/ES6 的继承除了写法以外还有什么区别？
+
+1. `class` 会被变量提升，不会初始化赋值，导致死区，`function` 为一等公民，会直接提升
+
+```javascript
+const a = new A(); // VM53:1 Uncaught ReferenceError: A is not defined
+class A {}
+
+const b = new B();
+function B() {
+  return {};
+}
+```
+
+2. `class` 声明内部会启用严格模式
+
+```javascript
+class A {
+  constructor() {
+    a = 3;
+  }
+}
+```
+
+3. `class` 所有的成员方法静态方法无法枚举
+
+```javascript
+class A {
+   print() {
+    console.log(this.foo);
+  }
+  static print2() {}
+}
+console.log(Object.keys(A)); // []
+console.log(Object.keys(A.prototype)); // []
+function B() {
+  return P{};
+}
+B.print2 = function(){};
+B.prototype.print = function(){
+  console.log(this.foo);
+};
+console.log(Object.keys(B)); // ['print2']
+console.log(Object.keys(B.prototype)); // ['print']
+```
+
+4. `class` 的**所有方法（包括静态方法和实例方法）都没有原型对象** `prototype`，所以也没有 `[[construct]]`，不能使用 `new` 来调用
+
+```javascript
+function B() {
+}
+B.prototype.print = function() {
+  console.log(this.bar);
+};
+
+const b = new B();
+const bPrint = new b.print(); // it's ok
+
+class A {
+  print() {
+    console.log(1);
+  }
+}
+const a = new A();
+const aPrint = new a.print(); // TypeError: a.print is not a constructor
+```
+
+5. 必须使用 `new` 调用 `class`
+
+```javascript
+class A {
+	init() {
+	console.log(444);
+	}
+}
+var a = new A();
+var b = A(); // Uncaught TypeError: Class constructor A cannot be invoked without 'new'
+```
+
+6. `class` 内部无法重写类
+
+```javascript
+function B() {
+  B = 'Baz'; // it's ok
+  this.bar = 42;
+}
+const b = new B();
+console.log(typeof B); // 'string' 
+
+class A {
+  constructor() {
+    this.a = 42;
+    A = 'Fol'; // TypeError: Assignment to constant variable
+  }
+}
+const a = new A();
+A = 'Fol'; // it's ok
+console.log(typeof A); // 'string' 
+```
+
+### 7. setTimeout、Promise、Async/Await 的区别
+
+[详情](https://github.com/Advanced-Frontend/Daily-Interview-Question/issues/33#issuecomment-471603854)
+
+注意：
+
+`Promise` 本身是**同步的立即执行函数**， 当在 `executor` 中执行 `resolve` 或者 `reject` 之后的操作也是同步的。
+
+但是当状态变更时，`then/catch` 中参数的方法是异步执行的。
+
+所以**只有 `then/catch` 中参数的方法是异步的**。
+
+```javascript
+console.log('script start')
+let promise1 = new Promise(function (resolve) {
+    console.log('promise1')
+    resolve()
+    console.log('promise1 end')
+}).then(function () {
+    console.log('promise2')
+})
+setTimeout(function(){
+    console.log('settimeout')
+})
+console.log('script end')
+// script start
+// promise1
+// promise1 end
+// script end
+// promise2
+// settimeout
+```
+
+### 8. Async/Await 如何通过同步的方式实现异步
+
+有这么三个异步请求的函数，想让它们串行执行该怎么办
+
+```javascript
+function ajaxName() {
+  return Promise.resolve('测试');
+}
+function ajaxSex() {
+  return Promise.resolve('男');
+}
+function ajaxSchool() {
+  return Promise.resolve('辽宁大学');
+}
+```
+
+1. 用 `Gennerator` 实现
+
+```javascript
+function * fetchInfo () {
+  const name = yield ajaxName();
+  const sex = yield ajaxSex();
+  const school = yield ajaxSchool();
+}
+
+const info = fetchInfo();
+
+// 加入的控制代码
+info.next().value.then(name => {
+  console.log(name); // 测试
+  return info.next().value;
+}).then(sex => {
+  console.log(sex); // 男
+  return info.next().value;
+}).then(school => {
+  console.log(school); // 辽宁大学
+});
+```
+
+2. 用 `Promise` 实现
+
+```javascript
+function fetchInfo() {
+  let name, sex, school;
+
+  return ajaxName().then(name => {
+    name = name;
+    console.log(name); // 测试
+    return ajaxSex();
+  }).then(sex => {
+    sex = sex;
+    console.log(sex); // 男
+    return ajaxSchool();
+  }).then(school => {
+    school = school;
+    console.log(school); // 辽宁大学
+  });
+}
+```
+
+3. 用 `async/await` 实现
+
+```javascript
+async function fetchInfo() {
+  const name = await ajaxName();
+  console.log(name); // 测试
+  const sex = await ajaxSex();
+  console.log(sex); // 男
+  const school = await ajaxSchool();
+  console.log(school); // 辽宁大学
+}
+```
+
+### 9. 一道异步笔试题
+
+```javascript
+async function async1() {
+    console.log('async1 start');
+    await async2();
+    console.log('async1 end');
+}
+async function async2() {
+    console.log('async2');
+}
+console.log('script start');
+setTimeout(function() {
+    console.log('setTimeout');
+}, 0)
+async1();
+new Promise(function(resolve) {
+    console.log('promise1');
+    resolve();
+}).then(function() {
+    console.log('promise2');
+});
+console.log('script end');
+
+// script start
+// async1 start
+// async2
+// promise1
+// script end
+// async1 end
+// promise2
+// setTimeout
+```
+
+`async` 函数内部 `await` 之前的执行都是同步的，`await` 之后才是异步的。

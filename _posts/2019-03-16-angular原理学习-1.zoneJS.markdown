@@ -6,7 +6,7 @@ date:       2019-03-16
 author:     "本人"
 header-img: "img/2019/summary/js.jpeg"
 tags:
-    - 基础总结
+    - Angular
 ---
 
 
