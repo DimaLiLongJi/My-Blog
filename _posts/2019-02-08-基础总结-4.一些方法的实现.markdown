@@ -165,6 +165,7 @@ Function.prototype.myCall = function (...argums) {
 
 ```javascript
 Function.prototype.myApply = function(context, argums) {
+  context = context || window;
   // 给 context 添加一个属性
   context.fn = this;
   let result;

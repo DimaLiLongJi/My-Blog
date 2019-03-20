@@ -12,18 +12,24 @@ tags:
 
 ## Iterator 迭代器
 
-`iterator` 是一个特殊的对象，它包含一个 `next` 方法，`next` 方法返回一个对象，这个对象包含两个属性
+`iterator` 是一个特殊的对象，它有用一个 `next` 方法，`next` 方法返回一个对象。
+
+这个对象包含两个属性：
 
 1. `value: any`，表示成员的值
 2. `done: boolean`，表示迭代器是否结束
 
 `iterator.next() // 返回 {value: '', done: false}`
 
-迭代器内部会保存一个指针，指向迭代器的成员位置，每调用一次 `next` 方法，指针就会移动到下一个成员，直到指针指向迭代器最后一个成员后面的位置
+迭代器内部会保存一个指针，指向迭代器的成员位置，每调用一次 `next` 方法，指针就会移动到下一个成员
+
+直到指针指向迭代器最后一个成员后面的位置
 
 这时，`done` 的值为 `true`，`value` 的值一般为 `undefined`，需要根据 `iterator` 的实际实现来决定。
 
 ### 简单实现一个迭代器类
+
+成员属性介绍：
 
 - `private point: number = 0` 指针 初始为0
 - `private params: any[] | Object` 传入可迭代数据
@@ -43,7 +49,7 @@ class MyIterator {
     this.length = this.keys.length;
   }
 
-  public next() {
+  public next(): { done: boolean; value: any; } {
     const done = this.point >= this.length;
     const value = done? undefined : this.params[this.keys[this.point]];
     if (!done) this.point++;
@@ -60,13 +66,14 @@ console.log(1, iterator.next()); // 1 { done: false, value: 1 }
 console.log(2, iterator.next()); // 2 { done: false, value: 2 }
 console.log(3, iterator.next()); // 3 { done: false, value: 3 }
 console.log(4, iterator.next()); // 4 { done: true, value: undefined }
+console.log(5, iterator.next()); // 5 { done: true, value: undefined }
 ```
 
 ### iterator接口
 
 **首先介绍下 `for...in` 与 `for...of` 区别**
 
-1. 推荐在循环对象属性的时候，使用 `for...in` ,在遍历数组的时候的时候使用 `for...of`。
+1. 推荐在循环对象属性的时候，使用 `for...in` （**会遍历到原型链**）,在遍历数组的时候的时候使用 `for...of` （**`Object.getOwnPropertyNames()`** 只会拿到自身可枚举非可枚举的属性）。
 2. **`for...in` 循环出的是 `key` ，`for...of` 循环出的是 `value`**
 3. `for...of` 是ES6新引入的特性。修复了ES5引入的 `for...in` 的不足
 4. **`for...of` 不能循环没有 `[Symbol.iterator]` 属性的对象**，需要通过和 `Object.keys()` 搭配使用
@@ -78,10 +85,10 @@ console.log(4, iterator.next()); // 4 { done: true, value: undefined }
 1. 数组天生部署了迭代器接口
 
 ```javascript
-const arr = [1, 2, 3];
-typeof arr[Symbol.iterator] // 'function'
+const array = [1, 2, 3];
+typeof array[Symbol.iterator] // 'function'
 
-for (const val of arr) {
+for (const val of array) {
     console.log(val);
 }
 // 1
@@ -116,12 +123,14 @@ obj[Symbol.iterator] = function() {
     }
 }
 for (const val of obj) {
-    console.log(val);
+    console.log(val); // 不会触发
 }
 // 'a'
 // 'b'
 // 'c'
 ```
+
+3. 当迭代器遍的状态已经完成时候，不会再更改状态
 
 
 ## Generator 生成器
@@ -141,18 +150,18 @@ function* generator() {
 }
 const myIterator = generator();
 // 当调用iterator的next方法时，函数体开始执行，
-myIterator.next(); // {value: 1, done: false}
-myIterator.next(); // {value: 2, done: false}
-myIterator.next(); // {value: 3, done: true}
+console.log(myIterator.next()); // {value: 1, done: false}
+console.log(myIterator.next()); // {value: 2, done: false}
+console.log(myIterator.next()); // {value: 3, done: true}
 
 for (const val of myIterator) {
-    console.log(val);
+    console.log(val); // 不会触发了
 }
 ```
 
 当 `for...of` 之后，迭代器的状态会关闭。
 
-### 实现个中序遍历
+### 实现个中序遍历（网上看到的，很屌）
 
 ```javascript
 function* traverseTree(node) {
@@ -167,7 +176,7 @@ function* traverseTree(node) {
 
 **生成器函数中使用生成器函数 需要使用 `*`**
 
-当我们想在generator b中嵌套generator a时，怎么嵌套呢？
+当我们想在 `generator b` 中嵌套 `generator a` 时，怎么嵌套呢？
 
 `yield *a(); ==> yield 1`，实际上就是把 `yield 1` 放在这个位置
 
@@ -316,6 +325,6 @@ const users = await Promise.all(p); // any[]
 
 ## 总结
 
-1. `Iterator` 是一个循环接口，任何实现了此接口的数据都可以被 `for...of` 循环遍历
-2. `Generator` 是一个可以暂停和继续执行的函数，可以完全实现 `Iterator` 的功能，并且由于可以保存上下文，非常适合实现简单的状态机。另外通过一些流程控制代码的配合，可以比较容易进行异步操作。
-3. `Async/Await` 就是 `Generator` 进行异步操作的语法糖 或是封装了 `Promise`。返回值为 `Promise` 的函数。
+1. `Iterator` 是一个可迭代接口，任何实现了此接口的数据结构都可以被 `for...of` 循环遍历
+2. `Generator` 是一个可以暂停和继续执行的函数体，可以完全实现 `Iterator` 的功能，并且由于可以保存上下文，非常适合实现简单的状态机。另外通过一些流程控制代码的配合，可以比较容易进行异步操作。
+3. `Async/Await` 就是 `Generator` 进行异步操作并封装了 `Promise`的语法糖。返回值为 `Promise` 的函数
