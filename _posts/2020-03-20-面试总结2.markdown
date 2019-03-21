@@ -64,20 +64,40 @@ tags:
 
 先说结论：
 
-1. 在生命周期中都是异步的
+1. 在**生命周期中都是异步的**
 2. 在 `react` 合成事件中都是异步的
 3. 在 `setTimeout` 等异步处理中是同步的
 4. 通过 `DOM.addEventListener` 绑定的事件中是同步的
 
-原因：
+原因：核心**`isBatchingUpdates: boolean`** `true` 为异步进队列 `false` 同步更新
 
 [源码](https://github.com/facebook/react/blob/35962a00084382b49d1f9e3bd36612925f360e5b/src/renderers/shared/reconciler/ReactUpdates.js#L199)
 
 1. react 通过 **队列机制合并 `state`**
-2. 当执行 `setState` 时，讲更新的 `state` 前合并后放入更新队列，而不会立即更新
-3. 直接修改 `state` 的值，则不会放入队列，当下次 `setState` 时，之前对 `state` 的修改可能会被忽略**在 typescript 中，`state` 的类型是 `ReadOnly`，所以你想改也改不了**
-4. 当调用 `setState` 时，实际上是会执行 `enqueueSetState` 方法，并会对 `partialState` 及 `_pendingStateQueue` 队列进行合并操作，最终通过 `enqueueUpdate` 执行 `state` 更新
-5. 会根据一个变量 `isBatchingUpdates` 判断是直接更新 `this.state` 还是放到队列中回头再说，而 `isBatchingUpdates` 默认是 `false`，`setState` 会同步更新 `this.state`
-6. 但是，有一个函数 `batchedUpdates`，这个函数会把 `isBatchingUpdates` 修改为 `true`，而当 `React` 在调用事件处理函数之前就会调用这个 `batchedUpdates`，造成的后果，就是由 `React` 控制的事件处理过程 `setState` 不会同步更新 `this.state`。
+2. 会根据一个变量 `isBatchingUpdates` 判断是直接更新 `this.state` 还是放到队列中回头再说，而 `isBatchingUpdates` 默认是 `false`，`setState` 会同步更新 `this.state`
+3. 但是，有一个函数 `batchedUpdates`，这个函数会把 `isBatchingUpdates` 修改为 `true` .而当 `React` 在调用事件处理函数或生命周期之前就会调用这个 `batchedUpdates` 造成的后果，就是由 `React` 控制的事件处理过程 `setState` 不会同步更新 `this.state`。
+4. 当执行 `setState` 时，如果 `isBatchingUpdates === true` 把更新的 `state` 前合并后放入更新队列，而不会立即更新
+5. 直接修改 `state` 的值，则不会放入队列，当下次 `setState` 时，之前对 `state` 的修改可能会被忽略**在 typescript 中，`state` 的类型是 `ReadOnly`，所以你想改也改不了**
+6. 当调用 `setState` 时，实际上是会执行 `enqueueSetState` 方法，并会对 `partialState` 及 `_pendingStateQueue` 队列进行合并操作，最终通过 `enqueueUpdate` 执行 `state` 更新
+7. 所以 不是通过 react 封装的浏览器原生事件或是计时器，会导致 `isBatchingUpdates === false` ，同步渲染发生
+8. **最后 如果生命周期，合成事件，`isBatchingUpdates` 为 true，会推进队列**
 
-**最后 如果生命周期，合成事件，`isBatchingUpdates` 为 true，会推进队列**
+### 5. 介绍下重绘Repaint和回流Reflow
+
+[参考](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/constructing-the-object-model?hl=zh-cn)
+
+- 浏览器渲染机制
+
+1. 浏览器采用流式布局模型（Flow Based Layout）
+2. 浏览器会把HTML解析成DOM，把CSS解析成CSSOM，DOM和CSSOM合并就产生了渲染树（Render Tree）。
+3. 有了RenderTree，我们就知道了所有节点的样式，然后计算他们在页面上的大小和位置，最后把节点绘制到页面上。
+4. 由于浏览器使用流式布局，对Render Tree的计算通常只需要遍历一次就可以完成，但table及其内部元素除外，他们可能需要多次计算，通常要花3倍于同等元素的时间，这也是为什么要避免使用table布局的原因之一。
+ 
+- 重绘
+
+由于节点的几何属性发生改变或者由于**样式发生改变而不会影响布局**的，称为重绘，例如`outline, visibility, color、background-color`等，重绘的代价是高昂的，因为浏览器必须验证DOM树上其他节点元素的可见性。
+
+- 回流
+
+回流是**布局或者几何属性需要改变就称为回流**。回流是影响浏览器性能的关键因素，因为其变化涉及到部分页面（或是整个页面）的布局更新。一个元素的回流可能会导致了其所有子元素以及DOM中紧随其后的节点、祖先节点元素的随后的回流。
+
