@@ -1,0 +1,40 @@
+<html lang=zh-CN>
+
+<head>
+  <meta charset=utf-8>
+</head>
+
+<body>
+  <canvas id="tutorial" width="300" height="300"></canvas>
+</body>
+<script>
+  window.onload = function () {
+    const canvas = document.getElementById('tutorial');
+    const ctx = canvas.getContext('2d');
+    const radius = 5;
+    let hasInit = false;
+    canvas.addEventListener('mousemove', function (event) {
+      var x = (event.pageX || event.clientX + document.body.scrollLeft + document.documentElement.scrollLeft) - canvas.offsetLeft;
+      var y = (event.pageY || event.clientY + document.body.scrollTop + document.documentElement.scrollTop) - canvas.offsetTop;
+      console.log('鼠标在canvas上的相对坐标位置', x, y);
+
+      if (!hasInit) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // 清除整个canvas画布
+        hasInit = true;
+      }
+
+      /* 打开路径开始绘图 */
+      ctx.fillStyle = 'red';
+      ctx.beginPath();
+
+      /* 绘制一个跟随鼠标的圆 */
+      ctx.arc(x, y, radius, 0, 2 * Math.PI, true);
+      ctx.fill();
+      ctx.closePath();
+    }, false);
+  }
+
+
+</script>
+
+</html>
