@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "基础总结-12.canvas"
+title:      "基础总结-13.canvas"
 subtitle:   "js 基础总结"
 date:       2019-04-06
 author:     "本人"
