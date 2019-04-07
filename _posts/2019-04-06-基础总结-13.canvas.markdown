@@ -213,12 +213,4 @@ x是邻边，y是对边，R是斜边，θ是角度
 ```
 
 
-/*反三角函数*/
-
-Math.asin(y/R)*(180/Math.PI) = θ
-
-Math.acos(x/R)*(180/Math.PI) = θ
-
-Math.atan(y/x)*(180/Math.PI) = θ
-
 
