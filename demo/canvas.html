@@ -27,11 +27,11 @@
       if (!hasInit) {
         ctx.clearRect(0, 0, canvas.width, canvas.height); // 清除整个canvas画布
         hasInit = true;
+        ctx.fillStyle = 'red';
       }
 
       window.requestAnimationFrame(() => {
         /* 打开路径开始绘图 */
-        ctx.fillStyle = 'red';
         ctx.beginPath();
 
         /* 绘制一个跟随鼠标的圆 */
@@ -53,8 +53,7 @@
       vy: 2,
       radius: 25,
       color: 'blue',
-      draw: function() { // 绘制小球
-        
+      draw: function() { // 绘制小球 
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius, 0, 2*Math.PI, true); // 画球
         ctx.closePath(); // 关闭

@@ -191,7 +191,7 @@ Function.prototype.myBind = function (...argums) {
   const args = [...argums].slice(1);
   // 返回一个函数
   return function F() {
-    return fn.apply(context, ...args);
+    return fn.apply(context, args);
   }
 }
 ```
@@ -414,4 +414,4 @@ promisex.then((value) => {
 console.log(222222, promisex.currentState);
 ```
 
-上述代码执行完之后，先 111 后3333 最后2222
+上述代码执行完之后，先 `111` 后 `3333` 最后 `2222`

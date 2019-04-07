@@ -37,7 +37,7 @@ XSS 通过修改 HTML 节点或者执行 JS 代码来攻击网站。一般通过
 
 #### 如何防御
 
-转义输入输出的内容
+- 转义输入输出的内容
 
 ```typescript
 function escape(str: string): string {
@@ -53,11 +53,11 @@ function escape(str: string): string {
 }
 ```
 
-CSP
+- CSP
 
 我们可以通过 CSP 来尽量减少 XSS 攻击。CSP 本质上也是建立白名单，规定了浏览器只能够执行特定来源的代码。
 
-通常可以通过 HTTP Header 中的 Content-Security-Policy 来开启 CSP
+通常可以通过 HTTP Header 中的 `Content-Security-Policy` 来开启 CSP
 
 只允许加载本站资源 `Content-Security-Policy: default-src ‘self’`
 只允许加载 HTTPS 协议图片 `Content-Security-Policy: img-src https://*`
@@ -67,9 +67,9 @@ CSP
 
 跨站请求伪造（英语：Cross-site request forgery），也被称为 one-click attack 或者 session riding，通常缩写为 CSRF 或者 XSRF， 是一种挟制用户在当前已登录的 Web 应用程序上执行非本意的操作的攻击方法。
 
-跟 XSS 相比，XSS 利用的是用户对指定网站的信任，CSRF 利用的是网站对用户网页浏览器的信任。
+跟 XSS 相比，**XSS 利用的是用户对指定网站的信任，CSRF 利用的是网站对用户网页浏览器的信任**。
 
-简单点说，CSRF 就是利用用户的登录态发起恶意请求。
+简单点说，**CSRF 就是利用用户的登录状态发起恶意请求**。
 
 #### 如何攻击
 
@@ -87,7 +87,7 @@ CSP
 </form>
 ```
 
-一个典型的CSRF攻击有着如下的流程：
+**一个典型的CSRF攻击有着如下的流程：**
 
 - 受害者登录a.com，并保留了登录凭证（Cookie）。
 - 攻击者引诱受害者访问了b.com。

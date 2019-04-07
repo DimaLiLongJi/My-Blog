@@ -32,7 +32,9 @@ aa.__proto__.__proto__ === Object.prototype; // true
 
 ## es5 的继承
 
-首先明确一个事情，js的继承是基于 原型 进行继承的。即使是es6的 `extend` 也是如此，仅仅是一个语法糖，通过“原型对象”（prototype）。
+首先明确一个事情，js的继承是基于 **原型** 进行继承的。
+
+即使是es6的 `extend` 也是如此，仅仅是一个语法糖，通过“原型对象”（prototype）。
 
 ### 原型链继承
 
@@ -188,6 +190,10 @@ console.log(s1);
 `Worker.prototype.constructor = Worker` 然后修改下构造函数
 
 ### 静态属性与方法的继承
+
+静态属性方法的继承通过**指定子类的显示原型为父类**
+
+`Worker.__proto__ = People; // 继承父类静态属性`
 
 ```javascript
 function People (name, age) {

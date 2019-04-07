@@ -73,7 +73,7 @@ console.log(5, iterator.next()); // 5 { done: true, value: undefined }
 
 **首先介绍下 `for...in` 与 `for...of` 区别**
 
-1. 推荐在循环对象属性的时候，使用 `for...in` （**会遍历到原型链**）,在遍历数组的时候的时候使用 `for...of` （**`Object.getOwnPropertyNames()`** 只会拿到自身可枚举非可枚举的属性）。
+1. 推荐在循环对象属性的时候，使用 `for...in` （**会遍历到原型链**）,在遍历数组的时候的时候使用 `for...of` （**`Object.getOwnPropertyNames()`** 只会拿到自身可枚举的属性）。
 2. **`for...in` 循环出的是 `key` ，`for...of` 循环出的是 `value`**
 3. `for...of` 是ES6新引入的特性。修复了ES5引入的 `for...in` 的不足
 4. **`for...of` 不能循环没有 `[Symbol.iterator]` 属性的对象**，需要通过和 `Object.keys()` 搭配使用
