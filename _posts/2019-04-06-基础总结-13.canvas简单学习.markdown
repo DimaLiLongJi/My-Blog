@@ -1,0 +1,350 @@
+---
+layout:     post
+title:      "基础总结-13.canvas简单学习"
+subtitle:   "js 基础总结"
+date:       2019-04-06
+author:     "本人"
+header-img: "img/2019/summary/js.jpeg"
+tags:
+    - 基础总结
+---
+
+
+## 关于canvas
+
+日常作为cv码农， `canvas` 肯定是相当陌生。
+
+正好有个面试问到了 `canvas` 那么就顺便学一下。
+
+[canvas](https://developer.mozilla.org/zh-CN/docs/Web/API/Canvas_API/Tutorial) 是 `HTML5` 新增的，一个可以使用脚本(通常为 JavaScript )在其中绘制图像的 `HTML` 元素。
+
+它可以用来制作照片集或者制作简单(也不是那么简单)的动画，甚至可以进行实时视频处理和渲染。
+
+Canvas是由 `HTML` 代码配合高度和宽度属性而定义出的可绘制区域。
+
+JavaScript 代码可以访问该区域，类似于其他通用的二维 API ，通过一套完整的绘图函数来动态生成图形。
+
+好吧，其实 `canvas` 其实是一个绘制2D的画布 API。
+
+
+## canvas API
+
+[参考](https://juejin.im/post/5bfba4d6e51d452fd80f0f0d#heading-2)
+
+- 路径与坐标
+  1. `beginPath()`  新建一条路径，生成之后，图形绘制命令被指向到路径上生成路径
+  2. `closePath()` 闭合路径之后图形绘制命令又重新指向到上下文中
+  3. `fill()`  通过填充路径的内容区域生成实心的图形 **路径使用填充（fill）时，路径自动闭合**
+  4. `stroke()` 通过线条来绘制图形轮廓 空心 **描边（stroke）则不会闭合路径**
+  5. `moveTo( x, y )`  将笔触移动到指定的坐标(x,y)
+  6. `clip()`  从原始画布剪切任意形状和尺寸的区域
+  7. `scale( x, y )`  缩放当前绘图**x,y 分别是横轴和纵轴的缩放因子，它们都必须是正值。值比 1.0 小表示缩小，比 1.0 大则表示放大，值为 1.0 时什么效果都没有**
+  8. `translate( x, y )`  重新设置画布上的(0,0)位置
+  9. `rotate( angle )`  选择当前绘图，单位为“弧度”，角度转弧度公式（`degrees*Math.PI/180`）
+  10. `transform( m11, m12, m21, m22, dx, dy )`  替换绘图的当前转换矩阵
+  11. `setTransform()`  将当前转换重置为单元矩阵，然后运行 `transform()`
+
+  绘制一个实心三角形和空心三角形
+  ```javascript
+  function draw() {
+   var canvas = document.getElementById('canvas');
+   if (canvas.getContext){
+   var ctx = canvas.getContext('2d');
+
+   // 填充三角形
+   ctx.beginPath();
+   ctx.moveTo(25,25);
+   ctx.lineTo(105,25);
+   ctx.lineTo(25,105);
+   ctx.fill(); // 自动闭合
+
+   // 描边三角形
+   ctx.beginPath();
+   ctx.moveTo(125,125);
+   ctx.lineTo(125,45);
+   ctx.lineTo(45,125);
+   ctx.closePath(); // stroke不会自动闭合，所以要先闭合再stroke 
+   ctx.stroke();
+   }
+  }
+  ```
+
+- 绘制矩形
+  1. `rect( x, y, width, height )`  绘制一个左上角坐标为（x,y），宽高为width以及height的矩形
+  2. `fillRect( x, y, width, height )`  绘制被填充的矩形
+  3. `strokeRect( x, y, width, height )`  绘制矩形（无填充）
+  4. `clearRect( x, y, width, height )` 清除指定的矩形内的像素
+
+- 绘制直线与曲线
+  1. `lineTo( x, y )`  绘制一条从当前位置到指定的坐标(x,y)的直线
+  2. `quadraticCurveTo(cp1x, cp1y, x, y)`  绘制二次贝塞尔曲线，cp1x,cp1y为一个控制点，x,y为结束点
+  3. `bezierCurveTo( cp1x, cp1y ,cp2x , cp2y ,x , y )`  绘制三次贝塞尔曲线，cp1x,cp1y为控制点一，cp2x,cp2y为控制点二，x,y为结束点
+  4. `arc( x, y, radius, startAngle, endAngle, anticlockwise)`  画一个以（x,y）为圆心的以radius为半径的圆弧（圆），从startAngle开始到endAngle结束，按照anticlockwise给定的方向（默认为顺时针）来生成
+  5. `arcTo( x1, y1, x2, y2, radius)`  根据给定点画圆弧，再以直线连接两个点
+  6. `isPointInPath( x, y )`  检测指定的点是否在当前路径中，在则返回true
+  7. `lineCap`  设置或返回线条的结束点样式（`butt、round、square`）
+  8. `lineJoin`  设置或返回当两条线交汇时，边角的类型（`bevel、round、miter`）
+  9. `lineWidth = value`  设置或返回当前的线条宽度
+  10. `lineJoin = type` 设定线条与线条间接合处的样式
+  11. `miterLimit = value`  设置或返回最大斜接长度(所谓交接处长度（斜接长度）是指线条交接处内角顶点到外角顶点的长度)
+  12. `getLineDash()` 返回一个包含当前虚线样式，长度为非负偶数的数组
+  13. `setLineDash(segments)` 设置虚线样式的起始偏移量
+
+- 设置颜色样式
+  1. `fillStyle = color`  设置或返回用于填充绘画的颜色、渐变或模式
+  2. `strokeStyle = color`  设置或返回用于笔触的颜色、渐变或模式
+  3. `shadowColor = color`  设置或返回用于阴影的颜色,默认是全透明的黑色
+  4. `shadowBlur = float`   设置或返回用于阴影的模糊级别
+  5. `shadowOffsetX = float`  设置或返回阴影与形状的水平距离(阴影在 X 和 Y 轴的延伸距离)
+  6. `shadowOffsetY`  设置或返回阴影与形状的垂直距离(阴影在 X 和 Y 轴的延伸距离)
+  7. `font`  设置或返回文本内容的当前字体属性（和css的font一样）
+  8. `textAlign`  设置或返回文本内容的当前对齐方式
+  9. `textBaseline`  设置或返回在绘制文本时使用的当前文本基线
+  10. `fillText( text, x, y )`  在画布上绘制“被填充”的文本
+  11. `strokeText( text, x, y )`  在画布上绘制文本（无填充）
+  12. `measureText( text )`  返回包含指定文本宽度的对象（属性width获取宽度）
+  13. `globalAlpha = transparencyValue`  设置或返回绘图的当前alpha或透明度，有效的值范围是 0.0 （完全透明）到 1.0（完全不透明），默认是 1.0
+  14. `globalCompositeOperation`  设置或返回新图像如何绘制到已有的图像上
+
+- 线性渐变
+  1. `createLinearGradient(x1, y1, x2, y2)`  创建线性渐变,渐变的起点 (x1,y1) 与终点 (x2,y2)
+  2. `createRadialGradient(x1, y1, r1, x2, y2, r2)` 创建径向渐变(前三个定义一个以 (x1,y1) 为原点，半径为 r1 的圆，后三个参数则定义另一个以 (x2,y2) 为原点，半径为 r2 的圆)
+  3. `createPattern( image/canvas/video, repeat )`  在指定的方向内重复绘制指定的元素(Image 可以是一个 Image 对象的引用，或者另一个 canvas 对象。Type 必须是下面的字符串值之一：repeat，repeat-x，repeat-y 和 no-repeat)
+  4. `gradient.addColorStop(position, color)`  规定渐变对象中的颜色和停止位置(position 参数必须是一个 0.0 与 1.0 之间的数值，表示渐变中颜色所在的相对位置。例如，0.5 表示颜色会出现在正中间。color 参数必须是一个有效的 CSS 颜色值)
+
+- **图片**
+  需要说明一下：图片可以说下面几种
+    1. `HTMLImageElement` 这些图片是由 `Image()` 函数构造出来的，或者任何的 `<img>` 元素
+    2. `HTMLVideoElement` 用一个HTML的 `<video>` 元素作为你的图片源，可以从视频中抓取当前帧作为一个图像**视频截图**
+    3. `HTMLCanvasElement` 可以使用另一个 `<canvas>` 元素作为你的图片源
+
+  **使用其它域名下的图片： 在 `HTMLImageElement` 上使用 `crossOrigin`属性，你可以请求加载其它域名上的图片**
+
+  **如果图片的服务器允许跨域访问这个图片，那么你可以使用这个图片而不污染 `canvas` ，否则，使用这个图片将会污染`canvas`**
+
+  API:
+    1. `drawImage( image/canvas, x, y )` 在画布上绘制图像、画布或视频**请求的图片不能跨域**
+    2. `drawImage( image/canvas, x, y, width, height )` 在画布上绘制图像、画布或视频**请求的图片不能跨域**
+    3. `drawImage( image/canvas, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight )`  在画布上绘制图像、画布或视频**前4个是定义图像源的切片位置和大小，后4个则是定义切片的目标显示位置和大小**
+    4. `toDataURL()`  将canvas转换成图片，返回地址
+    5. `createImageData( width, height )`、`createImageData(imageData)`  绘制ImageData对象
+    4.` getImageData( x, y, width, height )`  返回ImageData对象，该对象为画布上指定的矩形复制像素数据。
+    1. `putImageData( ImageData, x, y )`、`putImageData( imageData, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight )`  把图像数据放回画布上。
+    2. `width`  返回ImageData对象的宽度
+    3. `height`  返回ImageData对象的高度
+    4. `data`  返回一个对象，包含指定的ImageData对象的图像数据
+
+- 保存恢复
+  1. `getContext('2d')`  获取2d对象
+  2. `save()`  保存当前环境的状态
+  3. `restore()`  恢复之前保存过的路径状态和属性
+
+其实目前为止我只用过图片的 `drawImage` 和 `toDataURL` 这俩API。
+
+
+## 动画
+
+`canvas` 绘制动画有三步骤:
+
+1. 清空 `canvas` （使用 `clearRect()` 或全图绘制）
+2. 保存 `canvas` 状态（可选）**如果你要改变一些会改变 canvas 状态的设置（样式，变形之类的），又要在每画一帧之时都是原始状态的话，你需要先保存一下**
+3. 绘制动画图形
+4. 恢复 `canvas` 状态（一般在第二步的基础上使用）
+
+一般使用下面3种异步API来绘制：
+
+1. `setInterval( function, delay )`
+2. `setTimeout( function, delay )`
+3. `requestAnimationFrame( function )` `cancelAnimationFrame(frameId)` 览器的刷新频率自动调整动画的时间间隔，一般只有十几毫秒，可用它来做逐帧动画
+
+动画的实质就是由一幅幅不同的静态画面以极快的速度连续播放从而产生物体运动或变化。
+
+## 基本用法
+
+1. `<canvas>`
+
+`<canvas>` 标签只有两个属性—— `width` 和 `height`
+
+`canvas.getContext('2d')` 获取2D上下文
+
+```html
+<canvas id="tutorial" width="150" height="150"></canvas>
+<script>
+    window.onload = function () {
+       const canvas = document.getElementById('tutorial');
+       const ctx = canvas.getContext('2d');
+     }
+</script>
+```
+
+1. 鼠标在 `canvas` 上的相对坐标位置
+
+用 `pageX` 和 `pageY` 分别减去 `canvas` 元素的左偏移和上偏移距离就可得到相对 `canvas` 的鼠标位置
+
+``` javascript
+canvas.addEventListener('mousemove',function(event){
+  var x = (event.pageX || event.clientX + document.body.scrollLeft +document.documentElement.scrollLeft) - canvas.offsetLeft;
+  var y = (event.pageY || event.clientY + document.body.scrollTop +document.documentElement.scrollTop) - canvas.offsetTop;
+  console.log('鼠标在canvas上的相对坐标位置', x, y);
+},false);
+```
+
+绘图
+
+```javascript
+/* 获取画布上下文 */
+window.onload = function () {
+ const canvas = document.getElementById('tutorial');
+ const ctx = canvas.getContext('2d');
+ const radius = 3;
+ let hasInit = false;
+ canvas.addEventListener('mousemove', function (event) {
+   var x = (event.pageX || event.clientX + document.body.scrollLeft + document.documentElement.scrollLeft) - canvas.offsetLeft;
+   var y = (event.pageY || event.clientY + document.body.scrollTop + document.documentElement.scrollTop) - canvas.offsetTop;
+   console.log('鼠标在canvas上的相对坐标位置', x, y);
+
+   if (!hasInit) {
+     ctx.clearRect(0, 0, canvas.width, canvas.height); // 清除整个canvas画布
+     hasInit = true;
+   }
+
+   /* 打开路径开始绘图 */
+   ctx.fillStyle = 'red';
+   ctx.beginPath();
+
+   /* 绘制一个跟随鼠标的圆 */
+   ctx.arc(x, y, radius, 0, 2 * Math.PI, true);
+   ctx.fill();
+   ctx.closePath();
+ }, false);
+}
+```
+
+
+## 三角函数
+
+- 弧度与度
+
+角度和弧度都是角的度量单位，一弧度约等于57.2958°，反向计算可得360°（一个完整圆的角度）等于6.2832弧度（也就是2*PI），
+
+所以弧度（radians）和角度（degrees）的转换公式如下：
+
+```javascript
+1弧度 = degrees * Math.PI / 180;
+1度 = radians * 180 / Math.PI;
+```
+
+- 坐标系
+
+数学的坐标系是从左下角开始，`canvas` 的坐标系是从左上角开始
+
+- 直角三角形
+
+x是邻边，y是对边，R是斜边，θ是角度
+
+```javascript
+/*三角函数*/
+正弦：Math.sin(θ*Math.PI/180)
+余弦：Math.cos(θ*Math.PI/180)
+正切：Math.tan(θ*Math.PI/180)
+/*反三角函数*/
+反正弦：Math.asin(y/R)*(180/Math.PI) = θ
+反余弦：Math.acos(x/R)*(180/Math.PI) = θ
+反正切：Math.atan(y/x)*(180/Math.PI) = θ
+```
+
+## 碰撞检测
+
+我们画一个小球碰撞的动画
+
+1. 首先画个球
+
+```javascript
+function ballGo() {
+ const canvas = document.getElementById('ball');
+ const ctx = canvas.getContext('2d');
+ let raf;
+ const ball = {
+   x: 100,
+   y: 100,
+   vx: 5,
+   vy: 2,
+   radius: 25,
+   color: 'blue',
+   draw: function() { // 绘制小球
+     
+     ctx.beginPath();
+     ctx.arc(this.x, this.y, this.radius, 0, 2*Math.PI, true); // 画球
+     ctx.closePath(); // 关闭
+     ctx.fillStyle = this.color;
+     ctx.fill(); // 填充
+   }
+ }
+ ball.draw();
+}
+```
+
+2. 鼠标移动到区域开始移动
+
+使用api `window.requestAnimationFrame` 描述帧动画
+
+```javascript
+function ballGo() {
+ const canvas = document.getElementById('ball');
+ const ctx = canvas.getContext('2d');
+ let raf;
+ const ball = {
+   x: 100,
+   y: 100,
+   vx: 5, // 速度
+   vy: 2,
+   radius: 25,
+   color: 'blue',
+   draw: function() { // 绘制小球
+     
+     ctx.beginPath();
+     ctx.arc(this.x, this.y, this.radius, 0, 2*Math.PI, true); // 画球
+     ctx.closePath(); // 关闭
+     ctx.fillStyle = this.color;
+     ctx.fill(); // 填充
+   }
+ }
+ function draw() {
+   ctx.clearRect(0, 0, canvas.width, canvas.height); // 清除下画板
+   ball.draw();
+   ball.x += ball.vx;
+   ball.y += ball.vy;
+   raf = window.requestAnimationFrame(draw) // 动画API
+ }
+
+ canvas.addEventListener('mouseover', function(e){
+   raf = window.requestAnimationFrame(draw); // 开始动画
+ });
+
+ canvas.addEventListener('mouseout', function(e){
+   window.cancelAnimationFrame(raf); // 清除动画
+   raf = null;
+ });
+
+ ball.draw();
+}
+```
+
+3. 增加碰撞检测
+
+这个很神秘，其实就是**检测球的 `x + 速度` 和 `y + 速度` 是否超过画布的宽高或是小于宽高**。
+
+如果是的话则证明碰撞到边界了，所以要**把速度取反**
+
+```javascript
+function draw() {
+ctx.clearRect(0, 0, canvas.width, canvas.height); // 清除下画板
+ball.draw();
+ball.x += ball.vx;
+ball.y += ball.vy;
+// 碰撞检测 反转速度
+if ((ball.y + ball.vy) > canvas.height || (ball.y + ball.vy) < 0) ball.vy = -ball.vy;
+if ((ball.x + ball.vx) > canvas.width || (ball.x + ball.vx) < 0) ball.vx = -ball.vx;
+raf = window.requestAnimationFrame(draw) // 动画API
+}
+```

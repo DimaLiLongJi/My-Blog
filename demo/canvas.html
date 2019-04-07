@@ -5,15 +5,21 @@
 </head>
 
 <body>
-  <canvas id="tutorial" width="300" height="300"></canvas>
+  <canvas id="sign" width="300" height="300"></canvas>
+  <canvas id="ball" width="600" height="300"></canvas>
 </body>
 <script>
-  window.onload = function () {
-    const canvas = document.getElementById('tutorial');
+  function sign() {
+    const canvas = document.getElementById('sign');
     const ctx = canvas.getContext('2d');
     const radius = 5;
     let hasInit = false;
+    let startSign = false;
+    canvas.addEventListener('mouseup', function (event) {
+      startSign = !startSign;
+    });
     canvas.addEventListener('mousemove', function (event) {
+      if (!startSign) return;
       var x = (event.pageX || event.clientX + document.body.scrollLeft + document.documentElement.scrollLeft) - canvas.offsetLeft;
       var y = (event.pageY || event.clientY + document.body.scrollTop + document.documentElement.scrollTop) - canvas.offsetTop;
       console.log('鼠标在canvas上的相对坐标位置', x, y);
@@ -23,15 +29,64 @@
         hasInit = true;
       }
 
-      /* 打开路径开始绘图 */
-      ctx.fillStyle = 'red';
-      ctx.beginPath();
+      window.requestAnimationFrame(() => {
+        /* 打开路径开始绘图 */
+        ctx.fillStyle = 'red';
+        ctx.beginPath();
 
-      /* 绘制一个跟随鼠标的圆 */
-      ctx.arc(x, y, radius, 0, 2 * Math.PI, true);
-      ctx.fill();
-      ctx.closePath();
+        /* 绘制一个跟随鼠标的圆 */
+        ctx.arc(x, y, radius, 0, 2 * Math.PI, true);
+        ctx.fill();
+        ctx.closePath();
+      });
     }, false);
+  }
+
+  function ballGo() {
+    const canvas = document.getElementById('ball');
+    const ctx = canvas.getContext('2d');
+    let raf;
+    const ball = {
+      x: 100,
+      y: 100,
+      vx: 5, // 速度
+      vy: 2,
+      radius: 25,
+      color: 'blue',
+      draw: function() { // 绘制小球
+        
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, 2*Math.PI, true); // 画球
+        ctx.closePath(); // 关闭
+        ctx.fillStyle = this.color;
+        ctx.fill(); // 填充
+      }
+    }
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height); // 清除下画板
+      ball.draw();
+      ball.x += ball.vx;
+      ball.y += ball.vy;
+      // 碰撞检测 反转速度
+      if ((ball.y + ball.vy) > canvas.height || (ball.y + ball.vy) < 0) ball.vy = -ball.vy;
+      if ((ball.x + ball.vx) > canvas.width || (ball.x + ball.vx) < 0) ball.vx = -ball.vx;
+      raf = window.requestAnimationFrame(draw) // 动画API
+    }
+
+    canvas.addEventListener('mouseover', function(e){
+      raf = window.requestAnimationFrame(draw); // 开始动画
+    });
+
+    canvas.addEventListener('mouseout', function(e){
+      window.cancelAnimationFrame(raf); // 清除动画
+      raf = null;
+    });
+
+    ball.draw();
+  }
+  window.onload = function () {
+    sign();
+    ballGo();
   }
 
 
