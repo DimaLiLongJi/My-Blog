@@ -508,6 +508,8 @@ run () {
 
 计算属性本质上是 `computed watcher`(lazy watcher)，而侦听属性本质上是 `user watcher`。
 
+**而 Vue 的 `computed` 实际上是属性的 `getter` 并被平行的 `computed watcher` 所订阅，而 `watch` 则是属性的 `setter` 更新时调用的回调函数。**
+
 就应用场景而言，计算属性适合用在模板渲染中，某个值是依赖了其它的响应式对象甚至是计算属性计算而来；
 
 而侦听属性适用于观测某个值的变化去完成一段复杂的业务逻辑。

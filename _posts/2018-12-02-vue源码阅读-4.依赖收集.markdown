@@ -375,7 +375,7 @@ export function popTarget () {
 
 ## 总结
 
-**`Watcher` 入栈 => `Watcher getter` 触发 属性的 `getter` => 属性的 `getter` 触发栈顶的 `Watcher` 的 `newDeps` 收集 `Dep` => `dep.addSub(this)` 把 `Watcher` 添加到 `Dep` 的订阅**
+**渲染`Watcher` 入栈 => `Watcher getter` 触发 属性的 `getter` => 属性的 `getter` 触发栈顶的 `Watcher` 的 `newDeps` 收集 `Dep` => `dep.addSub(this)` 把 `Watcher` 添加到 `Dep` 的订阅**
 
 1. `this._init(options)` 初始化各种 `props` `data`
 2. `observe` 或生产 `ob = new Observer(value)`，并通过 `def(value, '__ob__', this)` 添加把 `Observer` 添加到属性中

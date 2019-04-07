@@ -355,7 +355,7 @@ export function _createElement (
 1. 如果是一个数组类型，则递归调用 `normalizeArrayChildren` ；
 2. 如果是基础类型，则通过 `createTextVNode` 方法转换成 `VNode` 类型；
 3. 否则就已经是 `VNode` 类型了，如果 `children` 是一个列表并且列表还存在嵌套的情况，则根据 `nestedIndex` 去更新它的 `key`；
-4. 如果存在两个连续的 `text` 节点，会把它们合并成一个 `text` 节点
+4. **如果存在两个连续的 `text` 节点，会把它们合并成一个 `text` 节点**
 
 #### vnode 的创建
 
