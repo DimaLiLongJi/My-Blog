@@ -196,6 +196,17 @@ Function.prototype.myBind = function (...argums) {
 }
 ```
 
+```javascript
+Function.prototype.myBind = function (context, ...args) {
+  if (typeof this !== 'function') throw new TypeError('Error');
+  const fn = this;
+  // 返回一个函数
+  return function F() {
+    return fn.apply(context, args);
+  }
+}
+```
+
 
 ## Promise
 

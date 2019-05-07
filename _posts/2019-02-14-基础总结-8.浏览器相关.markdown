@@ -210,6 +210,11 @@ jsonp('http://xxx', 'callback', function(value) {
 - `secure`	只能在协议为 `HTTPS` 的请求中携带
 - `same-site`	规定浏览器不能在跨域请求中携带 `Cookie`，减少 CSRF 攻击
 
+- cookie 与 session 的区别？
+
+cookie以文本格式存储在浏览器上，存储量有限；
+而session会话存储在服务端，可以无限量存储多个变量并且比cookie更安全
+
 #### localStorage
 
 - 除非被清理，否则一直存在	

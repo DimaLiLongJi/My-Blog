@@ -133,7 +133,7 @@ setInterval(function() {
 }, 1000);
 ```
 
-### 为清理的DOM引用
+### 未清理的DOM引用
 
 ```javascript
 var elements = {

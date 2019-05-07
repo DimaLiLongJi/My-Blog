@@ -68,7 +68,7 @@ tags:
 **宏任务和微任务的执行方式在浏览器和 `Node` 中有差异。**
 
 - 宏任务（macrotask）：`script(全局任务)`， `setTimeout`， `setInterval`， `setImmediate`， `I/O`， `UI rendering`
-- 微任务（macrotask）：`process.nextTick`， `Promise.then()`， `Object.observe`， `MutationObserver`
+- 微任务（microtask）：`process.nextTick`， `Promise.then()`， `Object.observe`， `MutationObserver`
 
 **在微任务中 `process.nextTick` 优先级高于 `Promise`**
 
@@ -84,7 +84,7 @@ tags:
 
 那么问题来了，当执行栈空时，可以去执行任务队列中的回调函数了，那么会先从宏任务的回调函数还是微任务的回调函数开始执行呢？
 
-由于 `script(全局任务)` 属于宏任务，因此当栈为空，同步任务任务执行完毕时，会**先执行微任务队列里的全部回调函数**。
+**由于 `script(全局任务)` 属于宏任务**，因此当栈为空，同步任务任务执行完毕时，会**先执行微任务队列里的全部回调函数**。
 
 微任务队列里的回调全部执行完毕后，会清空微任务队列，并执行宏任务队列中最前排的回调。
 

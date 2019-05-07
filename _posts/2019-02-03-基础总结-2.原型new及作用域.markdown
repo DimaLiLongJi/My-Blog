@@ -14,12 +14,28 @@ tags:
 
 ### 显式原型 prototype 与 隐式原型 __proto__
 
-因为在 JS 中是没有类（Class语法糖，实际上还是原型继承）的概念的，为了实现类似继承的方式，通过 `__proto__` 将对象和原型联系起来组成原型链，得以让对象可以访问到不属于自己的属性。
+因为在 JS 中不是依靠类继承（Class语法糖，实际上还是原型继承）的概念，为了实现类继承的方式，通过 `__proto__` 将对象和原型联系起来组成原型链，得以让对象可以访问到不属于自己的属性。
 
-1. 每个函数`Function` 都有 显式原型属性`prototype`，除了 `Function.prototype.bind()`
+1. 每个函数`Function` 都有 显式原型属性`prototype`，除了 `Function.prototype.bind()` 
+
+```javascript
+const aaa = ()=> {}
+aaa.prototype // undefined
+```
+
 2. 函数的属性 `prototype` 的 `constructor` 又指向该函数
 3. 每个对象`Object` 都有 隐式原型属性`__proto__`，该属性指向对象的 **构造函数的 `prototype`** (其实这个属性指向了 `[[prototype]]`，但是 `[[prototype]]` 是内部属性，我们并不能访问到，所以使用 `__proto__` 来访问。)
-4. 当对象没有某个属性时，对象会通过 属性`__proto__` 去创建该对象的构造函数的 `prototype` 上去访问是否存在该属性。
+4. 当对象没有某个属性方法时，对象会通过 属性`__proto__` 去创建该对象的构造函数的 `prototype` 上去访问是否存在该属性方法。
+
+```javascript
+function A(){}
+
+const a = new A();
+
+a.constructor === A; // true
+a.__proto__ === A.prototype; /// true
+a.__proto__.constructor === A.prototype.constructor === A; /// true
+```
 
 ### 原型链
 
@@ -49,7 +65,7 @@ new时候发生了什么
 2. 生成的对象的隐式原型指向到构造函数的显式原型
 3. 绑定 this
 4. 执行构造函数
-5. 返回新对象
+5. 如果构造函数返回对下则返回对象，如果不是对象则返回新对象
 
 按照上述我们来实现个假 `new`
 
@@ -103,17 +119,18 @@ function instanceofFunc(left, right) {
     // 获得对象的隐式原型
     const proto = left.__proto__;
     // 递归判断对象的显式原型是否等于类型的隐式原型
-    // 下面两种都可以
-
-    // while (true) {
-    // 	if (left === null) return false;
-    // 	if (prototype === left) return true;
-    // 	left = left.__proto__;
-    // }
 
     if (left === null) return false;
     else if (prototype === proto) return true;
     else return instanceofFunc(proto, right);
+}
+
+function instanceofFunc2(left, right) {
+    while (true) {
+        if (left === null) return false;
+        if (right.prototype === left) return true;
+        left = left.__proto__;
+    }
 }
 ```
 
@@ -123,15 +140,14 @@ function instanceofFunc(left, right) {
 1. 函数里的`this`是调用函数前的对象 （`a.xx()` => `xx`的`this`是`a`）
 2. 全局函数非严格模式指向`window`，严格模式是`undefined`
 3. 匿名函数的`this`为创建时的执行上下文
-4. `Function.prototype.call()` `Function.prototype.bind()` `Function.prototype.apply()` 会改变`this`
+4. `Function.prototype.call(fn, a, b)` `Function.prototype.bind(fn , a, b)` `Function.prototype.apply(fn, [a, b])` 会改变`this`
 
 
 ## 执行上下文
 
 1. 全局执行上下文
 2. 函数执行上下文
-3. eval 执行上下文
-
+3. `eval` 执行上下文
 每种上下文都有三个重要属性
 
 1. 变量对象（VO），包含变量、函数声明和函数的形参，**该属性只能在全局上下文中访问**
@@ -172,7 +188,7 @@ var funExpression = function(type){
 
 概念：函数 A 返回了一个函数 B，并且函数 B 中使用了函数 A 的变量，函数 B 就被称为闭包。
 
-所以闭包就是能读取其他函数内部变量的函数。
+所以**闭包就是能读取其他函数内部变量的函数**。
 
 ```javascript
 function A() {
@@ -187,6 +203,6 @@ A()(); // 1
 
 为什么函数 A 已经弹出调用栈了，为什么函数 B 还能引用到函数 A 中的变量？
 
-因为函数 A 中的 a 变量这时候是存储在堆上的。现在的 JS 引擎可以通过逃逸分析辨别出**哪些变量需要存储在堆上，哪些需要存储在栈上**。
+因为函数 A 中的 a 变量这时候是存储在堆上的。现在的 JS 引擎可以通过**逃逸分析**辨别出**哪些变量需要存储在堆上，哪些需要存储在栈上**。
 
 `let` 会创建一个块级作用域。
