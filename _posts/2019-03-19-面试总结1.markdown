@@ -77,7 +77,7 @@ function throttle(fn) {
 
 #### 防抖
 
-高频事件触发，但在n**秒后才会执行一次**
+高频事件触发，但在**n秒后才会执行一次**
 
 ```javascript
 function debounce(fn) {

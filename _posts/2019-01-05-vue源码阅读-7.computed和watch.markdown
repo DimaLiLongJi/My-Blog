@@ -19,7 +19,9 @@ tags:
 
 [Vue computed](https://cn.vuejs.org/v2/guide/computed.html#%E8%AE%A1%E7%AE%97%E5%B1%9E%E6%80%A7)
 
-但是如果我们使用方法也能达到同样的目的，但是 方法在每次渲染页面的时候都会执行，会产生副作用。而 `computed` 则会根据该属性的依赖来执行，只在相关依赖发生改变时它们才会重新求值。
+但是如果我们使用方法也能达到同样的目的，但是 方法在每次渲染页面的时候都会执行，会产生副作用。
+
+而 `computed` 则会根据该属性的依赖来执行，只在相关依赖发生改变时它们才会重新求值。
 
 初始化开始于 `initState`。**initProps => initMethods => initData => initComputed => initWatch**
 

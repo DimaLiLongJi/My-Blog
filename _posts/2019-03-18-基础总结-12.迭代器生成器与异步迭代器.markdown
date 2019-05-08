@@ -163,9 +163,15 @@ for (const val of myIterator) {
 
 ### 实现个中序遍历（网上看到的，很屌）
 
+1. 先序：考察到一个节点后，即刻输出该节点的值，并继续遍历其左右子树。(根左右)
+
+2. 中序：考察到一个节点后，将其暂存，遍历完左子树后，再输出该节点的值，然后遍历右子树。(左根右)
+
+3. 后序：考察到一个节点后，将其暂存，遍历完左右子树后，再输出该节点的值。(左右根)
+
 ```javascript
 function* traverseTree(node) {
-    if (node == null) return;
+    if (node === null) return;
     yield* traverseTree(node.left);
     yield node.value;
     yield* traverseTree(node.right);
@@ -304,10 +310,12 @@ function fetchInfo() {
 比如如下代码，我们需要遍历获取 `redis` 中存储的100个用户的信息：
 
 ```javascript
-const ids = [1,2,3,4];
-const users=[];
-for (let i=0;i<ids.length;i++) {
-  users.push(await db.get(ids));
+async () => {
+  const ids = [1,2,3,4];
+  const users=[];
+  for await(let i=0;i<ids.length;i++) {
+    users.push(await db.get(ids));
+  }
 }
 ```
 
