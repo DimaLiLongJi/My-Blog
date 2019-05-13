@@ -11,7 +11,7 @@ tags:
 
 ## 内置类型
 
-JS 中分为七种内置类型，七种内置类型又分为两大类型：基本类型和引用类型。
+JS 中分为七种内置类型，七种内置类型又分为两大类型：**基本类型和引用类型**。
 
 基本类型有六种： `null`, `undefined`, `number(float)`, `boolean`, `string`, `symbol`
 
@@ -30,13 +30,11 @@ Number(null) // 0
 
 
 
-
-
 ## Typeof
 
 ### typeof 对于基本类型，除了 null 都可以显示正确的类型
 
-因为早期32位vm，使用低位存储了变量的类型信息，000 开头代表是对象，而null则为全0
+因为早期32位vm，使用低位存储了变量的类型信息，`000` 开头代表是对象，而 `null` 则为全0
 
 ```javascript
 typeof 1 // 'number'
@@ -56,7 +54,7 @@ typeof {} // 'object'
 typeof console.log // 'function'
 ```
 
-通过`Object.prototype.toString.call()`来获得正确的类型，返回`[object 类型]`
+通过 `Object.prototype.toString.call()` 来获得正确的类型，返回 `[object 类型]`
 
 ```javascript
 Object.prototype.toString.call(null) // [object Null]

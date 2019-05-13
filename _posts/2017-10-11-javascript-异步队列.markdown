@@ -16,7 +16,7 @@ setTimeout(() => {console.log(4)},0);
 new Promise(function(resolve, reject){
     console.log(1)
     for( var i=0 ; i<10000 ; i++ ){
-        i==9999 && resolve()
+        i === 9999 && resolve()
     }
     console.log(2)
 }).then(function(){
@@ -62,9 +62,17 @@ js是一种单线程异步的语言。（这么说没错吧？）它的异步是
 
 虽然事件循环只能有一个，但是任务队列可以有多个 **这个我也是才知道**
 
-1. 异步队列分为两种： macrotask 和 microtask
-2. 整个script是属于一个macrotask, `setTimeout` 也是属于macrotask, `Promise`是一个同步任务,而`promise.then的回调`则属于miacrotask
-3. 此时`setTimeout`已经被推入macrotask,根据顺序，所以接下来会顺序执行所有的 microtask, 也就是 `promise.then` 的回调函数，从而打印出5
-4. 当miacrotask队列中的任务已经完成后，去执行macrotask中的`setTimeout`,所以打印出 4
+1. 异步队列分为两种： `macrotask` 和 `microtask` (angular的zonejs额外分出来一个事件任务 `eventtask`)
+2. 整个script是属于一个 `macrotask` , `setTimeout` 也是属于 `macrotask`, `Promise`是一个同步任务,而`promise.then的回调`则属于 `miacrotask`
+3. 此时`setTimeout`已经被推入 `macrotask` ,根据顺序，所以接下来会顺序执行所有的 `microtask`, 也就是 `promise.then` 的回调函数，从而打印出5
+4. 当 `miacrotask` 队列中的任务已经完成后，去执行 `macrotask` 中的 `setTimeout`, 所以打印出 4
 
 第二道题也是类似，所以就不多说了
+
+总结下，其实就是：
+
+1. 全局脚本任务（macrotask）执行
+2. 微任务队列（microtask）全部执行
+3. 开始执行多个宏任务中的第一个执行
+4. 微任务队列（microtask）全部执行
+5. 递归了

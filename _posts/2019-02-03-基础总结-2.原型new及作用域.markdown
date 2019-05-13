@@ -16,11 +16,11 @@ tags:
 
 因为在 JS 中不是依靠类继承（Class语法糖，实际上还是原型继承）的概念，为了实现类继承的方式，通过 `__proto__` 将对象和原型联系起来组成原型链，得以让对象可以访问到不属于自己的属性。
 
-1. 每个函数`Function` 都有 显式原型属性`prototype`，除了 `Function.prototype.bind()` 
+1. 每个函数 `Function` 都有 显式原型属性 `prototype` ，除了 `Function.prototype.bind()` 和箭头函数
 
 ```javascript
-const aaa = ()=> {}
-aaa.prototype // undefined
+const aaa = ()=> {};
+aaa.prototype; // undefined
 ```
 
 2. 函数的属性 `prototype` 的 `constructor` 又指向该函数
@@ -34,7 +34,7 @@ const a = new A();
 
 a.constructor === A; // true
 a.__proto__ === A.prototype; /// true
-a.__proto__.constructor === A.prototype.constructor === A; /// true
+a.constructor === a.__proto__.constructor === A.prototype.constructor === A; /// true
 ```
 
 ### 原型链
@@ -65,7 +65,7 @@ new时候发生了什么
 2. 生成的对象的隐式原型指向到构造函数的显式原型
 3. 绑定 this
 4. 执行构造函数
-5. 如果构造函数返回对下则返回对象，如果不是对象则返回新对象
+5. 如果构造函数返回对象则返回返回值，如果不是对象则返回新对象
 
 按照上述我们来实现个假 `new`
 
@@ -128,7 +128,7 @@ function instanceofFunc(left, right) {
 function instanceofFunc2(left, right) {
     while (true) {
         if (left === null) return false;
-        if (right.prototype === left) return true;
+        if (left === right.prototype) return true;
         left = left.__proto__;
     }
 }
@@ -137,10 +137,10 @@ function instanceofFunc2(left, right) {
 
 ## this的指向
 
-1. 函数里的`this`是调用函数前的对象 （`a.xx()` => `xx`的`this`是`a`）
+1. 函数里的 `this` 是调用函数前的对象既函数的调用者 （`a.xx()` => `xx`的`this`是`a`）
 2. 全局函数非严格模式指向`window`，严格模式是`undefined`
-3. 匿名函数的`this`为创建时的执行上下文
-4. `Function.prototype.call(fn, a, b)` `Function.prototype.bind(fn , a, b)` `Function.prototype.apply(fn, [a, b])` 会改变`this`
+3. 匿名函数的`this`为创建时的外层的 `this`
+4. `Function.prototype.call(fn, a, b)` `Function.prototype.bind(fn, a, b)` `Function.prototype.apply(fn, [a, b])` 会改变 `this`
 
 
 ## 执行上下文
@@ -148,11 +148,12 @@ function instanceofFunc2(left, right) {
 1. 全局执行上下文
 2. 函数执行上下文
 3. `eval` 执行上下文
+
 每种上下文都有三个重要属性
 
 1. 变量对象（VO），包含变量、函数声明和函数的形参，**该属性只能在全局上下文中访问**
 2. 作用域链（JS 采用**词法作用域**，也就是说变量的作用域是在定义时就决定了）
-3. this
+3. `this`
 
 
 ## 函数和变量提升
@@ -173,11 +174,13 @@ var funExpression = function(type){
 }
 ```
 
-在生成执行上下文时，会有两个阶段。第一个阶段是创建的阶段（具体步骤是创建 VO），**JS 解释器会找出需要提升的变量和函数，并且给他们提前在内存中开辟好空间**。
+在生成执行上下文时，会有两个阶段。
+
+第一个阶段是创建的阶段（具体步骤是创建 VO），**JS 解释器会找出需要提升的变量和函数，并且给他们提前在内存中开辟好空间**。
 
 **函数的话会将整个函数存入内存中。**
 
-**变量只声明并且赋值为 undefined。**
+变量：
 
 1. `var` 会被变量提升，并且被赋值为 `undefined`
 2. `let` 会被变量提升，但不会被赋值，因为临时死区导致了并不能在声明前使用。

@@ -84,31 +84,67 @@ JSONP 的原理很简单，就是利用 `<script>` 标签没有跨域限制的�
 ```
 
 ```javascript
+// client.js
+function jsonp(url, params, callback) {
+  return new Promise((res, rej) => {
+    const script = document.createElement('script');
+    script.async = true;
+    script.type = 'text/javascript';
 
-function jsonp(url, jsonpCallback, success) {
-  let script = document.createElement('script');
-  script.src = url;
-  script.async = true;
-  script.type = 'text/javascript';
-  window[jsonpCallback] = function(data) {
-    success && success(data);
-  }
-  document.body.appendChild(script);
+    window[callback] = function(data) {
+      res(data);
+      document.body.removeChild(script);
+    }
+
+    params = { ...params, callback } // wd=b&callback=show
+    let arrs = []
+    for (let key in params) {
+      arrs.push(`${key}=${params[key]}`)
+    }
+    script.src = `${url}?${arrs.join('&')}`
+
+    document.body.appendChild(script);
+  })
 }
-jsonp('http://xxx', 'callback', function(value) {
-  console.log(value);
+jsonp({
+  url: 'http://localhost:3000/say',
+  params: { wd: 'b' },
+  callback: 'show'
+}).then(data => {
+  console.log(data)
 });
+
+// server.js
+let express = require('express')
+let app = express()
+app.get('/say', function(req, res) {
+  let { wd, callback } = req.query
+  console.log(wd) // Iloveyou
+  console.log(callback) // show
+  res.end(`${callback}('我不爱你')`)
+})
+app.listen(3000)
 ```
 
 ### CORS
 
-服务端设置 `Access-Control-Allow-Origin` 就可以开启 CORS。 该属性表示哪些域名可以访问资源，如果设置通配符则表示所有网站都可以访问资源。
+服务端设置 `Access-Control-Allow-Origin` 就可以开启 CORS。
 
-### document.domain
+该属性表示哪些域名可以访问资源，如果设置通配符则表示所有网站都可以访问资源。
+
+1. 浏览器必须首先使用 `OPTIONS` 方法发起一个预检请求（preflight request），从而获知服务端是否允许该跨域请求。
+2. 服务器确认允许之后，才发起实际的 HTTP 请求。
+3. 在预检请求的返回中，服务器端也可以通知客户端，是否需要携带身份凭证（包括 `Cookies` 和 `HTTP` 认证相关数据）
+
+### document.domain二级域名
 
 该方式只能用于二级域名相同的情况下，比如 `a.test.com` 和 `b.test.com` 适用于该方式。
 
-只需要给页面添加 `document.domain = 'test.com'` 表示二级域名都相同就可以实现跨域
+只需要给页面添加 `document.domain = 'test.com'` 表示二级域名都相同就可以实现跨域。
+
+### WebSocket可以跨域
+
+### nginx反向代理/Node中间件代理
 
 
 ## 渲染机制
@@ -118,7 +154,7 @@ jsonp('http://xxx', 'callback', function(value) {
 浏览器的渲染机制一般分为以下几个步骤
 
 1. 处理 HTML 并构建 DOM 树。
-2. 处理 CSS 构建 CSSOM 树。（CSSOM 和 DOM 是并行的）
+2. 处理 CSS 构建 CSSOM 树。（**CSSOM 和 DOM 是并行的**）
 3. 将 DOM 与 CSSOM 合并成一个渲染树。
 4. 根据渲染树来布局，计算每个节点的位置。
 5. 调用 GPU 绘制，合成图层，显示在屏幕上。
@@ -135,7 +171,7 @@ jsonp('http://xxx', 'callback', function(value) {
 
 **`script` 标签不一定会阻塞渲染**
 
-- `<script defer="defer">` **异步加载脚本**，但是执行要在**所有元素解析（`DOMContentLoaded`）完成**之后完成，**按照先后顺序执行**。
+- `<script defer="defer">` **异步加载脚本**，但是执行要在**所有元素解析（`DOMContentLoaded`）完成**之后`Load` 事件之前完成，**按照先后顺序执行**。
 - `<script async="async">` **异步加载脚本**，**不会按照顺序执行加载完立即执行**。
 
 ### `Load` 和 `DOMContentLoaded` 区别
@@ -191,7 +227,7 @@ jsonp('http://xxx', 'callback', function(value) {
 4. 尽可能在`DOM`树的最末端改变 `class`，回流是不可避免的，但可以减少其影响。尽可能在DOM树的最末端改变 `class`，可以限制了回流的范围，使其影响尽可能少的节点。
 5. 避免设置多层内联样式，`CSS` 选择符从右往左匹配查找，避免节点层级过多。
 
-- JavaScript 操作DOM CSS
+- JavaScript 操作 DOM CSS
 
 1. 避免频繁操作样式，最好一次性重写 `style` 属性，或者将样式列表定义为 `class` 并一次性更改 `class` 属性。
 2. 避免频繁操作 `DOM` ，创建一个 `documentFragment`，在它上面应用所有 `DOM` 操作，最后再把它添加到文档中。
@@ -205,9 +241,9 @@ jsonp('http://xxx', 'callback', function(value) {
 - 一般由服务器生成，可以设置过期时间
 - 每个key最大4K
 - 每次都会携带在 `header` 中，对于请求性能影响
-- `value`	如果用于保存用户登录态，应该将该值加密，不能使用明文的用户标识
+- `value`	如果用于保存用户登录态，应该将该值加密，不能使用明文的用户标识（**JWT**）
 - `http-only`	不能通过 JS 访问 `Cookie`，减少 XSS 攻击
-- `secure`	只能在协议为 `HTTPS` 的请求中携带
+- `secure` 只能在协议为 `HTTPS` 的请求中携带
 - `same-site`	规定浏览器不能在跨域请求中携带 `Cookie`，减少 CSRF 攻击
 
 - cookie 与 session 的区别？

@@ -1,7 +1,7 @@
 ---
 layout:     post
-title:      "angular原理学习-1.zoneJS"
-subtitle:   "angular原理学习结"
+title:      "angular-1.zoneJS"
+subtitle:   "zonejs"
 date:       2019-03-16
 author:     "本人"
 header-img: "img/2019/summary/js.jpeg"
@@ -9,7 +9,7 @@ tags:
     - Angular
 ---
 
-本文转载自[知乎](https://zhuanlan.zhihu.com/p/23005330)
+
 
 ## ZoneJS
 
@@ -54,6 +54,7 @@ function Main() {
 // 当点击页面后输出
 => HTMLDocument.addEventListener:click 耗时 55.73000000000002ms
 ```
+
 
 ## Zone
 

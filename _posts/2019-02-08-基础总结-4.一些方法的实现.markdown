@@ -161,6 +161,18 @@ Function.prototype.myCall = function (...argums) {
 }
 ```
 
+```javascript
+Function.prototype.myCall = function (context, ...argums) {
+  context = context || window;
+  // 给 context 添加一个属性
+  context.fn = this;
+  const result = context.fn(...argums);
+  // 删除 fn
+  delete context.fn;
+  return result;
+}
+```
+
 `apply` 接收2个参数，第一个参数为`this`，第二个参数为数组为函数的参数；
 
 ```javascript
@@ -190,7 +202,7 @@ Function.prototype.myBind = function (...argums) {
   const fn = this;
   const args = [...argums].slice(1);
   // 返回一个函数
-  return function F() {
+  return function() {
     return fn.apply(context, args);
   }
 }
@@ -201,7 +213,7 @@ Function.prototype.myBind = function (context, ...args) {
   if (typeof this !== 'function') throw new TypeError('Error');
   const fn = this;
   // 返回一个函数
-  return function F() {
+  return function() {
     return fn.apply(context, args);
   }
 }

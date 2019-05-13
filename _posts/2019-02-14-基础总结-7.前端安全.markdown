@@ -99,11 +99,9 @@ function escape(str: string): string {
 
 #### 如何防御
 
-- Get 请求不对数据进行修改
-- 阻止不明外域的访问：不让第三方网站访问到用户 `Cookie`: `Samesite Cookie`
-- 阻止不明外域的访问，阻止第三方网站请求接口: 同源检测，请求头的 `Origin Header， Referer Header`
-- 请求时附带验证信息，比如验证码或者 `token`
+1. Get 请求不对数据进行修改
+2. 阻止不明外域的访问：不让第三方网站访问到用户 `Cookie`: `Samesite Cookie`
+3. 阻止不明外域的访问，阻止第三方网站请求接口: 同源检测，请求头的 `Origin Header， Referer Header`
+4. 请求时附带验证信息，比如验证码或者 `token`
   - `CSRF Token`
   - 双重Cookie验证
-
-
