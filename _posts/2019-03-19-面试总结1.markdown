@@ -11,36 +11,21 @@ tags:
 
 ## Index
 
- - [1. 写 React / Vue 项目时为什么要在组件中写 key，其作用是什么](#1-写-react--vue-项目时为什么要在组件中写-key其作用是什么)
- - [2. ['1', '2', '3'].map(parseInt) 解析](#2-1-2-3mapparseint-解析)
- - [3. 节流和防抖的个人见解](#3-节流和防抖的个人见解)
- - [4. Set、Map、WeakSet 和 WeakMap 的区别](#4-setmapweakset-和-weakmap-的区别)
- - [5. 深度优先遍历和广度优先遍历及实现](#5-深度优先遍历和广度优先遍历及实现)
- - [6. ES5/ES6 的继承除了写法以外还有什么区别？](#6-es5es6-的继承除了写法以外还有什么区别)
- - [7. setTimeout、Promise、Async/Await 的区别](#7-settimeoutpromiseasyncawait-的区别)
- - [8. Async/Await 如何通过同步的方式实现异步](#8-asyncawait-如何通过同步的方式实现异步)
- - [9. 一道异步笔试题](#9-一道异步笔试题)
- - [10. 数组平铺](#10-数组平铺)
- - [11. 一个await的例子](#11-一个await的例子)
- - [12. 实现一个new](#12-实现一个new)
- - [13. 实现一个instanceof](#12-实现一个instanceof)
+ - [1. ['1', '2', '3'].map(parseInt) 解析](#1-1-2-3mapparseint-解析)
+ - [2. 节流和防抖的个人见解](#2-节流和防抖的个人见解)
+ - [3. Set、Map、WeakSet 和 WeakMap 的区别](#3-setmapweakset-和-weakmap-的区别)
+ - [4. 深度优先遍历和广度优先遍历及实现](#4-深度优先遍历和广度优先遍历及实现)
+ - [5. ES5/ES6 的继承除了写法以外还有什么区别？](#5-es5es6-的继承除了写法以外还有什么区别)
+ - [6. setTimeout、Promise、Async/Await 的区别](#6-settimeoutpromiseasyncawait-的区别)
+ - [7. Async/Await 如何通过同步的方式实现异步](#7-asyncawait-如何通过同步的方式实现异步)
+ - [8. 一道异步笔试题](#8-一道异步笔试题)
+ - [9. 数组平铺](#9-数组平铺)
+ - [10. 一个await的例子](#10-一个await的例子)
+ - [11. 实现一个new](#11-实现一个new)
+ - [12. 实现一个instanceof](#12-实现一个instanceof)
 
 
-### 1. 写 React / Vue 项目时为什么要在组件中写 key，其作用是什么
-
-[vue diff](https://github.com/vuejs/vue/blob/dev/src/core/vdom/patch.js#L424)
-
-`vue` 和 `react` 都是采用 `diff` 算法来对比新旧虚拟节点，从而更新节点。在 `vue` 的 `diff` 函数中。可以先了解一下 `diff`算法。
-
-在交叉对比的时候，当新节点跟旧节点头尾交叉对比没有结果的时候，会根据新节点的 `key` 去对比旧节点数组中的 `key` ，从而找到相应旧节点（这里对应的是一个 `key` => `index` 的 `map` 映射）。
-
-如果没找到就认为是一个新增节点。
-
-而如果没有 `key`，那么就会采用一种遍历查找的方式去找到对应的旧节点。
-
-一种一个 `map` 映射，另一种是遍历查找。相比而言。`map` 映射的速度更快。
-
-### 2. ['1', '2', '3'].map(parseInt) 解析
+### 1. ['1', '2', '3'].map(parseInt) 解析
 
 `['1', '2', '3'].map(parseInt)` 输出 `1, NaN, NaN`。
 
@@ -54,7 +39,7 @@ tags:
 
 最后因为 `radix` 不存在 返回 `NaN`，2进制不存在3，返回 `NaN`。
 
-### 3. 节流和防抖的个人见解
+### 2. 节流和防抖的个人见解
 
 #### 节流
 
@@ -92,7 +77,7 @@ function debounce(fn) {
 }
 ```
 
-### 4. Set、Map、WeakSet 和 WeakMap 的区别
+### 3. Set、Map、WeakSet 和 WeakMap 的区别
 
 - `Set`
 1. 成员不能重复
@@ -113,7 +98,7 @@ function debounce(fn) {
 2. 健名所指向的对象，不计入垃圾回收机制**键名是弱引用对象，而值可以是任意类型** `WeakMap` 的 `key` 是不可枚举的
 3. 不能遍历，方法同`get,set,has,delete`
 
-### 5. 深度优先遍历和广度优先遍历及实现
+### 4. 深度优先遍历和广度优先遍历及实现
 
 - 深度优先遍历 DFS
 
@@ -203,7 +188,7 @@ function widthTraversal(node) {
 }
 ```
 
-### 6. ES5/ES6 的继承除了写法以外还有什么区别？
+### 5. ES5/ES6 的继承除了写法以外还有什么区别？
 
 1. `class` 会被变量提升，不会初始化赋值，导致死区，`function` 为一等公民，会直接提升
 
@@ -303,7 +288,7 @@ A = 'Fol'; // it's ok
 console.log(typeof A); // 'string' 
 ```
 
-### 7. setTimeout、Promise、Async/Await 的区别
+### 6. setTimeout、Promise、Async/Await 的区别
 
 [详情](https://github.com/Advanced-Frontend/Daily-Interview-Question/issues/33#issuecomment-471603854)
 
@@ -336,7 +321,7 @@ console.log('script end')
 // settimeout
 ```
 
-### 8. Async/Await 如何通过同步的方式实现异步
+### 7. Async/Await 如何通过同步的方式实现异步
 
 有这么三个异步请求的函数，想让它们串行执行该怎么办
 
@@ -409,7 +394,7 @@ async function fetchInfo() {
 }
 ```
 
-### 9. 一道异步笔试题
+### 8. 一道异步笔试题
 
 ```javascript
 async function async1() {
@@ -445,7 +430,7 @@ console.log('script end');
 
 `async` 函数内部 `await` 之前的执行都是同步的，`await` 之后才是异步的。
 
-### 10. 数组平铺
+### 9. 数组平铺
 
 指定数组，`var arr = [ [1, 2, 2], [3, 4, 5, 5], [6, 7, 8, 9, [11, 12, [12, 13, [14] ] ] ], 10];`
 
@@ -457,7 +442,7 @@ Array.prototype.flat = function() {
 }
 ```
 
-### 11. 一个await的例子
+### 10. 一个await的例子
 
 ```javascript
 let a = 0
@@ -474,7 +459,7 @@ console.log('1', a) // '1' 1
 2. 因为 `await` 是异步操作，后来的表达式不返回 `Promise` 的话，就会包装成` Promise.reslove(返回值)`，然后会去执行函数外的同步代码
 3. 同步代码执行完毕后开始执行异步代码，将保存下来的值拿出来使用，这时候 `a = 0 + 10`
 
-### 12. 实现一个new
+### 11. 实现一个new
 
 1. 穿件一个空对象
 2. 对象的隐式原型绑定到构造函数的显示原型
@@ -491,7 +476,7 @@ function myNew(fn, ...args) {
 }
 ```
 
-### 13. 实现一个instanceof
+### 12. 实现一个instanceof
 
 1. 获取左侧对象的隐式原型
 2. 获取右侧对象的显示原型

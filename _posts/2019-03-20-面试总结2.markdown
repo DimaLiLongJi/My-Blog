@@ -14,12 +14,11 @@ tags:
  - [1. 简单讲解一下http2的多路复用](#1-简单讲解一下http2的多路复用)
  - [2. TCP三次握手四次挥手](#2-TCP三次握手四次挥手)
  - [3. AB机器正常连接后，B机器突然重启，问A此时处于TCP什么状态](#3-AB机器正常连接后，B机器突然重启，问A此时处于TCP什么状态)
- - [4. React中setState什么时候是同步的，什么时候是异步的？](#4-React中setState什么时候是同步的，什么时候是异步的？)
- - [5. 介绍下重绘Repaint和回流Reflow](#4-介绍下重绘Repaint和回流Reflow)
- - [6. mysql中truncate、delete、drop的区别](#6-mysql中truncate、delete、drop的区别)
- - [7. gitPull是哪几个命令](#7-gitPull是哪几个命令)
- - [8. fastForward与noFastForward](#8-fastForward与noFastForward)
- - [9. gitMerge与gitRebase](#9-gitMerge与gitRebase)
+ - [4. 介绍下重绘Repaint和回流Reflow](#4-介绍下重绘Repaint和回流Reflow)
+ - [5. mysql中truncate、delete、drop的区别](#5-mysql中truncate、delete、drop的区别)
+ - [6. gitPull是哪几个命令](#6-gitPull是哪几个命令)
+ - [7. fastForward与noFastForward](#7-fastForward与noFastForward)
+ - [8. gitMerge与gitRebase](#8-gitMerge与gitRebase)
 
 
 ### 1. 简单讲解一下http2的多路复用
@@ -63,31 +62,7 @@ tags:
    2. 服务器重启后，客户继续工作，然而服务器已丢失客户信息，收到客户数据后响应 `RST`。
 4. 服务器和客户建立连接后，若服务器关机，`init` 进程会给所有进程发送 `SIGTERM` 信号预警，然后发送 `SIGKILL` 关闭所有其他进程，这样和2情况没什么差别。
 
-### 4. React中setState什么时候是同步的，什么时候是异步的？
-
-[参考](https://github.com/sisterAn/blog/issues/26)
-
-先说结论：
-
-1. 在**生命周期中都是异步的**
-2. 在 `react` 合成事件中都是异步的
-3. 在 `setTimeout` 等异步处理中是同步的
-4. 通过 `DOM.addEventListener` 绑定的事件中是同步的
-
-原因：核心**`isBatchingUpdates: boolean`** `true` 为异步进队列 `false` 同步更新
-
-[源码](https://github.com/facebook/react/blob/35962a00084382b49d1f9e3bd36612925f360e5b/src/renderers/shared/reconciler/ReactUpdates.js#L199)
-
-1. react 通过 **队列机制合并 `state`**
-2. 会根据一个变量 `isBatchingUpdates` 判断是直接更新 `this.state` 还是放到队列中回头再说，而 `isBatchingUpdates` 默认是 `false`，`setState` 会同步更新 `this.state`
-3. 但是，有一个函数 `batchedUpdates`，这个函数会把 `isBatchingUpdates` 修改为 `true` .而当 `React` 在调用事件处理函数或生命周期之前就会调用这个 `batchedUpdates` 造成的后果，就是由 `React` 控制的事件处理过程 `setState` 不会同步更新 `this.state`。
-4. 当执行 `setState` 时，如果 `isBatchingUpdates === true` 把更新的 `state` 前合并后放入更新队列，而不会立即更新
-5. 直接修改 `state` 的值，则不会放入队列，当下次 `setState` 时，之前对 `state` 的修改可能会被忽略**在 typescript 中，`state` 的类型是 `ReadOnly`，所以你想改也改不了**
-6. 当调用 `setState` 时，实际上是会执行 `enqueueSetState` 方法，并会对 `partialState` 及 `_pendingStateQueue` 队列进行合并操作，最终通过 `enqueueUpdate` 执行 `state` 更新
-7. 所以 不是通过 react 封装的浏览器原生事件或是计时器，会导致 `isBatchingUpdates === false` ，同步渲染发生
-8. **最后 如果生命周期，合成事件，`isBatchingUpdates` 为 true，会推进队列**
-
-### 5. 介绍下重绘Repaint和回流Reflow
+### 4. 介绍下重绘Repaint和回流Reflow
 
 [参考](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/constructing-the-object-model?hl=zh-cn)
 
@@ -106,7 +81,7 @@ tags:
 
 回流是**布局或者几何属性需要改变就称为回流**。回流是影响浏览器性能的关键因素，因为其变化涉及到部分页面（或是整个页面）的布局更新。一个元素的回流可能会导致了其所有子元素以及DOM中紧随其后的节点、祖先节点元素的随后的回流。
 
-### 6. mysql中truncate、delete、drop的区别
+### 5. mysql中truncate、delete、drop的区别
 
 - 表数据和表结构
 
@@ -124,11 +99,25 @@ truncate 删除表中的所有行，表的列、约束、索引保持不变，�
 
 只能用 delete + where
 
-### 7. gitPull是哪几个命令
+- 日志
+
+delete 会记录在日志以恢复，而其他2个不会
+
+- 事务
+
+delete是DML语句,不会自动提交。drop/truncate都是DDL语句,执行后会自动提交
+
+- 外键
+
+对于由外键约束引用的表，不能使用 `TRUNCATE TABLE`，而应使用不带 `WHERE` 子句的 `DELETE` 语句。
+
+由于 `TRUNCATE TABLE` 不记录在日志中，所以它不能激活触发器
+
+### 6. gitPull是哪几个命令
 
 git pull = git fetch + git merge
 
-### 8. fastForward与noFastForward
+### 7. fastForward与noFastForward
 
 - Fast-Forward
 
@@ -138,7 +127,7 @@ git pull = git fetch + git merge
 
 当前分支合并到另一分支时，如果没有分歧解决，也会使得**每一次的合并都创建一个新的commit记录**，用来避免丢失信息。
 
-### 9. gitMerge与gitRebase
+### 8. gitMerge与gitRebase
 
 假设现在有个分支a是在E节点上从master上切出来的。
 
