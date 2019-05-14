@@ -4,7 +4,7 @@ title:      "angular-2.变化检测"
 subtitle:   "Change Detection"
 date:       2019-05-13
 author:     "本人"
-header-img: "img/2019/summary/js.jpeg"
+header-img: "img/2019/03/angular.png"
 tags:
     - Angular
 ---
@@ -36,5 +36,139 @@ tags:
 
 其实，我们不难发现上述三种情况都有一个共同点，即这些导致绑定值发生改变的除了生命周期事件都是**异步发生**的。
 
-如果这些异步的事件在发生时能够通知到Angular框架，那么Angular框架就能及时的检测到变化。
+如果这些异步的事件在发生时能够通知到 angular ，那么 angular 就能及时的检测到变化。
+
+上一节，大概讲了一下 zonejs。而 angular 正是通过引入 zonejs，用过暴力替换的方式，为js异步api运行时提供一些钩子函数。
+
+![zonejs](/my-blog/img/2019/05/zonejs.png)
+
+### 启动变化检测
+
+几乎我们启动一个 angular app 都是从这开始的
+
+```typescript
+platformBrowserDynamic().bootstrapModule(AppModule);
+```
+
+1. 在angular启动 `bootstrapModule` 的时候，调用了 `bootstrapModuleFactory`，在该方法里启动了 ngzone，并 调用了 `_moduleDoBootstrap`，从 IOC 容器中获取了 `ApplicationRef`。
+
+[获取ApplicationRef](https://github.com/angular/angular/blob/master/packages/core/src/application_ref.ts#L295)
+
+```typescript
+bootstrapModule<M>(moduleType: Type<M>, compilerOptions: (CompilerOptions&BootstrapOptions)|Array<CompilerOptions&BootstrapOptions> = []: Promise<NgModuleRef<M>> {
+    const options = optionsReducer({}, compilerOptions);
+    return compileNgModuleFactory(this.injector, options, moduleType)
+        .then(moduleFactory => this.bootstrapModuleFactory(moduleFactory, options));
+}
+
+bootstrapModuleFactory<M>(moduleFactory: NgModuleFactory<M>, options?: BootstrapOptions):
+      Promise<NgModuleRef<M>> {
+    // Note: We need to create the NgZone _before_ we instantiate the module,
+    // as instantiating the module creates some providers eagerly.
+    // So we create a mini parent injector that just contains the new NgZone and
+    // pass that as parent to the NgModuleFactory.
+    const ngZoneOption = options ? options.ngZone : undefined;
+    const ngZone = getNgZone(ngZoneOption);
+    const providers: StaticProvider[] = [{provide: NgZone, useValue: ngZone}];
+    // Attention: Don't use ApplicationRef.run here,
+    // as we want to be sure that all possible constructor calls are inside `ngZone.run`!
+    return ngZone.run(() => {
+      const ngZoneInjector = Injector.create(
+          {providers: providers, parent: this.injector, name: moduleFactory.moduleType.name});
+      const moduleRef = <InternalNgModuleRef<M>>moduleFactory.create(ngZoneInjector);
+      const exceptionHandler: ErrorHandler = moduleRef.injector.get(ErrorHandler, null);
+      if (!exceptionHandler) {
+        throw new Error('No ErrorHandler. Is platform module (BrowserModule) included?');
+      }
+      moduleRef.onDestroy(() => remove(this._modules, moduleRef));
+      ngZone !.runOutsideAngular(
+          () => ngZone !.onError.subscribe(
+              {next: (error: any) => { exceptionHandler.handleError(error); }}));
+      return _callAndReportToErrorHandler(exceptionHandler, ngZone !, () => {
+        const initStatus: ApplicationInitStatus = moduleRef.injector.get(ApplicationInitStatus);
+        initStatus.runInitializers();
+        return initStatus.donePromise.then(() => {
+          this._moduleDoBootstrap(moduleRef);
+          return moduleRef;
+        });
+      });
+    });
+}
+
+private _moduleDoBootstrap(moduleRef: InternalNgModuleRef<any>): void {
+    const appRef = moduleRef.injector.get(ApplicationRef) as ApplicationRef;
+    if (moduleRef._bootstrapComponents.length > 0) {
+      moduleRef._bootstrapComponents.forEach(f => appRef.bootstrap(f));
+    } else if (moduleRef.instance.ngDoBootstrap) {
+      moduleRef.instance.ngDoBootstrap(appRef);
+    } else {
+      throw new Error(
+          `The module ${stringify(moduleRef.instance.constructor)} was bootstrapped, but it does not declare "@NgModule.bootstrap" components nor a "ngDoBootstrap" method. ` +
+          `Please define one of these.`);
+    }
+    this._modules.push(moduleRef);
+  }
+
+```
+
+2. 在 实例化 `ApplicationRef` 时候，实例订阅了 `onMicrotaskEmpty` 和 `onUnstable` 事件来以触发更改检测 `Application.tick`。
+
+[订阅onMicrotaskEmpty](https://github.com/angular/angular/blob/master/packages/core/src/application_ref.ts#L514)
+
+```typescript
+ constructor(
+      private _zone: NgZone, private _console: Console, private _injector: Injector,
+      private _exceptionHandler: ErrorHandler,
+      private _componentFactoryResolver: ComponentFactoryResolver,
+      private _initStatus: ApplicationInitStatus) {
+    this._enforceNoNewChanges = isDevMode();
+
+    this._zone.onMicrotaskEmpty.subscribe(
+        {next: () => { this._zone.run(() => { this.tick(); }); }});
+```
+
+3. 当 angular 触发了异步api时，zonejs 会调用各种事件通知 angular 异步进行到哪一步了，最终在完成时触发检测变更。
+
+### 执行变化检测
+
+通过上面的介绍，我们大致明白了变化检测是如何被触发的，那么Angular中的变化检测是如何执行的呢？
+
+首先我们需要知道的是，对于每一个组件，都有一个对应的变化检测器；
+
+即每一个Component都对应有一个 `changeDetector` ，我们可以在 Component 中通过依赖注入来获取到 `changeDetector`。
+
+而我们的多个Component是一个树状结构的组织，由于一个Component对应一个 `changeDetector` ，那么**changeDetector树是一个与组件树一一对应的树状结构的组织**。
+
+每次变化检测都是从**组件树 `changeDetector` 的根开始**。
+
+而angular的检测变更模式有2种：
+
+```typescript
+enum ChangeDetectionStrategy {
+  OnPush: 0
+  Default: 1
+}
+```
+
+- Default默认检测模式
+
+1. 然后从根组件开始，如果根组件的值没有变化，则递归到子组件进行变更检测
+2. 直到没有子组件，变化检测将更新DOM，同步视图与模型之间的变化
+
+- OnPush模式
+
+1. 在该模式下，**该组件及其子组件**将脱离 `changeDetector` 树
+2. Angular不会对该组件运行变化检测（Change Detection ）
+3. 除非组件的 `input` 接收到了新值，或调用 `ChangeDetector` 实例上的 `markForCheck()` 来触发组件内的脏检查
+
+
+## 总结
+
+总结来说，Angular中变化检测器是树型结构的组织，与组件树结构相对应。
+
+默认情况下，当一个组件引发了变化检测时，检测是从树根开始一直检测到树节点。
+
+当你设置某个组件的检测策略是 `OnPush` 时，如果该组件的输入绑定没有发生变化时，那么检测就不会进入到该组件。
+
+当组件树变的很庞大时，常用这种办法来提高应用的性能。(或是 `async pipe`)
 
