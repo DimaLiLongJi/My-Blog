@@ -19,6 +19,18 @@ tags:
  - [6. gitPull是哪几个命令](#6-gitPull是哪几个命令)
  - [7. fastForward与noFastForward](#7-fastForward与noFastForward)
  - [8. gitMerge与gitRebase](#8-gitMerge与gitRebase)
+ - [9. CSS选择器优先级](#9-CSS选择器优先级)
+ - [10. 文本溢出部分进行省略号填充的方式](#10-文本溢出部分进行省略号填充的方式)
+ - [11. CSS判断不同分辨率显示不同宽度实现自适应](#11-CSS判断不同分辨率显示不同宽度实现自适应)
+ - [12. css盒模型](#12-css盒模型)
+ - [13. flex布局](#13-flex布局)
+ - [14. 外边距重叠](#14-外边距重叠)
+ - [15. CSS选择符](#15-CSS选择符)
+ - [16. 元素剧中](#16-元素剧中)
+ - [17. transition与transform与translate](#17-transition与transform与translate)
+ - [18. a标签上四个伪类的执行顺序是怎么样的](#18-a标签上四个伪类的执行顺序是怎么样的)
+ - [19. 伪元素和伪类的区别和作用](#19-a标签上四个伪类的执行顺序是怎么样的伪元素和伪类的区别和作用)
+ - [20. 请问为何要使用transform而非absolutepositioning](#20-请问为何要使用transform而非absolutepositioning)
 
 
 ### 1. 简单讲解一下http2的多路复用
@@ -157,3 +169,146 @@ rebase的含义是**改变子分支branch out(切出点)的位置**，并最后�
             /         
 D---E---F---G master
 ```
+
+### 9. CSS优先级
+
+1. 优先级就近原则，同权重情况下样式定义最近者为准
+2. 载入样式以最后载入的为准
+3. 选择器优先级：`!importan > 内联 > ID选择器 > class选择器 > 伪类=属性选择器 > 元素选择器【p】> 通用选择器(*) > 继承的样式 `
+
+### 10. 文本溢出部分进行省略号填充的方式 
+
+1. 单行
+
+```css
+{
+    width:300px;
+    overflow: hidden;
+    text-overflow:ellipsis;
+    white-space: nowrap; 
+}
+```
+
+2. 多行
+
+```css
+{
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden; 
+
+}
+```
+
+### 11. CSS判断不同分辨率显示不同宽度实现自适应
+
+`@media screen` 媒体查询
+
+```css
+@media screen and（min-width：xx）／（max-width：xx）{
+
+}
+```
+
+## 12. css盒模型
+
+CSS盒模型，它由内到外、被四条边界Content edge、Padding edge、Border edge和Margin edge划分为四个区域：
+
+**Content area、Padding area、Border area和Margin area**
+
+`width/height(Content area) + padding(Padding area) + border(Border area) + margin(Margin area)`
+
+1. IE盒模型：`box-sizing: border-box;` **content = width/height + padding + border**
+2. CSS盒模型：`box-sizing: content-box;` **content = width/height**
+3. 标准(W3C)盒模型：**元素宽度 = (width + padding + border) + margin**
+4. 怪异(IE)盒模型：**元素宽度 = width + margin**
+
+
+## 13. flex布局
+
+flex布局意为弹性布局，任何一个容器都可以指定为flex布局(display: flex)，行内元素也可以使用flex布局(display: inline-flex)，webkit内核的浏览器，必须加上(diaplay: -webkit-flex)，设为flex布局后，**子元素的float，clear，vertical-align属性将失效**
+
+- 容器的属性
+这6个属性设置在容器上，`flex-direction,flex-wrap, flex-flow, justify-content, align-items, align-content`
+
+1. flex-direction决定主轴的方向，即项目排列的方向 flex-direction：row | row-reserve | column | column-reserve
+2. flex-wrap决定项目在一条轴线上排不下时，如何换行 flex-wrap： nowrap | wrap | wrap-reserve
+3. flex-flow是flex-direction属性和flex-wrap属性的简写，默认为row nowrap
+4. justify-content决定项目在主轴上的对齐方式 justify-content: flex-start | flex-end | center | space-between | space-around
+5. align-items决定项目在交叉轴上如何对齐 align-items：flex-start | flex-end | center | baseline | stretch
+6. ailgn-content决定多根轴线的对齐方式，如果项目只有一根轴线，该属性不起作用 align-content: flex-start | flex-end | center | space-between | space-around | stretch
+
+- 子元素的属性：flex属性是flex-grow, flex-shrink 和 flex-basis的简写，默认值为0 1 auto。后两个属性可选
+
+## 14. 外边距重叠
+
+外边距重叠就是 `margin-collapse`
+
+相邻的两个盒子（可能是**兄弟关系也可能是父子祖先关系**）的**外边距可以结合成一个单独的外边距**。 这种合并外边距的方式被称为折叠，结合而成的外边距称为折叠外边距
+
+折叠结果遵循下列计算规则：
+
+1. 两个相邻的外边距都是正数时，折叠结果是它们两者之间较大的值
+2. 两个相邻的外边距都是负数时，折叠结果是它们两者之间较小的值
+3. 两个外边距一正一负时，折叠结果是两者的相加的和
+
+## 15. CSS选择符
+
+1. id 选择器（ # myid）
+2. 类选择器（.myclassname）
+3. 标签选择器（div, h1, p）
+4. 相邻选择器（h1 + p）
+5. 子选择器（ul > li）
+6. 后代选择器（li a）
+7. 通配符选择器（ * ）
+8. 属性选择器（a[rel = "external"]）
+9. 伪类选择器（a:hover, li:nth-child）
+10. 伪元素选择器（a::after）
+
+## 16. 元素剧中
+
+1. 行内元素：`text-align: center;`
+2. 块状元素：
+   1. 为元素设置宽度
+   2. `margin: 0 auto;`
+   3. IE6 下需在父元素上设置 `text-align: center;`,再给子元素恢复需要的值
+3. 浮动元素：
+   1. 为元素设置宽度
+   2. `position: relative;`
+   3. `left: 50%`
+   4. `margin-left: 负一半宽度`
+   5. 或 `transform: translateX(-50%);`
+
+## 17. transition与transform与translate
+
+1. transition是过度动画 `transition: all .3s ease-in .1s;`
+2. transform是动画 `transform: translate(20px, 20px);`
+3. translate是动画的3D位移 `transform: translate(20px, 20px);`
+
+## 18. a标签上四个伪类的执行顺序是怎么样的
+
+link > visited > hover > active
+
+## 19. 伪元素和伪类的区别和作用
+
+1. 伪元素:在内容元素的前后插入额外的元素或样式，但是这些元素实际上并不在文档中生成。它们只在外部显示可见，但不会在文档的源代码中找到它们，因此，称为“伪”元素
+
+```css
+p::after {content:"Hot!";}
+```
+
+2. 伪类: 将特殊的效果添加到特定选择器上。它是已有元素上添加类别的，不会产生新的元素。例如：
+
+```css
+a:hover {color: #FF00FF}
+```
+
+## 20. 请问为何要使用transform而非absolutepositioning
+
+使用 transform 或 position 实现动画效果时是有很大差别。
+
+1. 使用 transform 时，可以让 GPU 参与运算，动画的 FPS 更高。
+2. 使用 position 时，最小的动画变化的单位是 1px，而使用 transform 参与时，可以做到更小（动画效果更加平滑）
+3. 功能都一样。但是 translate 不会引起浏览器的重绘和重排，这就相当 nice 了。
+

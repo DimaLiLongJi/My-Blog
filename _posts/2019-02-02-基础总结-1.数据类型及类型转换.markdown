@@ -34,6 +34,8 @@ Number(null) // 0
 
 ### typeof 对于基本类型，除了 null 都可以显示正确的类型
 
+`number，boolean，string，undefined，symbol，object，function`
+
 因为早期32位vm，使用低位存储了变量的类型信息，`000` 开头代表是对象，而 `null` 则为全0
 
 ```javascript
