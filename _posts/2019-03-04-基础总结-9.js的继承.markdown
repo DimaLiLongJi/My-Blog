@@ -212,9 +212,14 @@ function Worker (name, age, price) {
   this.price = price;
   this.setScore = function () { };
 }
-Worker.__proto__ = People; // 继承父类静态属性 重点2
-Worker.prototype = Object.create(People.prototype); // 重点3 子类显示原型绑定到父类显示原型的实例
-Worker.prototype.constructor = Worker; // 重点4 子类显示原型的构造函数绑定为父类
+
+// 继承父类静态属性 重点2
+Worker.__proto__ = People;
+// 重点3 子类显示原型绑定到父类显示原型的实例
+Worker.prototype = Object.create(People.prototype);
+// 重点4 子类显示原型的构造函数绑定为父类
+Worker.prototype.constructor = Worker;
+
 var s1 = new Worker('Tom', 20, 15000);
 console.log(s1 instanceof Worker, s1 instanceof People); // true true
 console.log(s1.constructor); //Worker

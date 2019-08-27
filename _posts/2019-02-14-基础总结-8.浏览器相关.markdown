@@ -254,13 +254,13 @@ cookie以文本格式存储在浏览器上，存储量有限；
 #### localStorage
 
 - 除非被清理，否则一直存在	
-- 5M
+- 每个key5M
 - 不参与
 
 #### sessionStorage
 
 - 页面关闭就清理	
-- 5M
+- 每个key5M
 - 不参与
 
 #### indexDB

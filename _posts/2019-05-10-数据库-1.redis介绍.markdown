@@ -237,16 +237,22 @@ maxmemory-policy volatile-lru
 
 `maxmemory-policy` 就是配置内存淘汰策略的：
 
-1. `allkeys`：全部key
-2. `volatile`：设置了过期时间Expire的key
-3. `lru`：最少使用的key
-4. `random`：随机key
-5. `ttl`：最早过期时间key
+key的值：
+
+1. `noeviction`：报错
+2. `allkeys`：全部key
+3. `volatile`：设置了过期时间Expire的key
+
+删除的策略：
+
+1. `lru`：最少使用的key
+2. `random`：随机key
+3. `ttl`：最早过期时间key
 
 可配置值：
 
 1. `noeviction`：当内存不足以容纳新写入数据时，新写入操作会报错。应该没人使用吧；
-2. `allkeys-lru`：当内存不足以容纳新写入数据时，在键空间中，移除最近最少使用的Key。推荐使用，目前项目在用这种；
+2. `allkeys-lru`：当内存不足以容纳新写入数据时，在键空间中，移除最近**最少使用的Key**。推荐使用，目前项目在用这种；
 3. `allkeys-random`：当内存不足以容纳新写入数据时，在键空间中，随机移除某个key，应该也没人使用吧；
 4. `volatile-lru`：当内存不足以容纳新写入数据时，在设置了过期时间的键空间中，移除最近**最少使用的Key**。这种情况一般是把Redis既当缓存又做持久化存储的时候才用。不推荐；
 5.  `volatile-random`：当内存不足以容纳新写入数据时，在设置了过期时间的键空间中，随机移除某个Key。依然不推荐；
