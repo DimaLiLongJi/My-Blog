@@ -1,0 +1,364 @@
+---
+layout:     post
+title:      "maven-pom.xml"
+subtitle:   "maven"
+date:       2019-11-12
+author:     "本人"
+header-img: "img/java/maven.jpg"
+tags:
+    - Maven
+---
+
+
+## 什么是 pom？
+
+`POM` 是 `Project Object Model` 的缩写，即项目对象模型。
+
+`pom.xml` 就是 maven 的配置文件，用以描述项目的各种信息。
+
+### pom 预览
+
+```xml
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                      http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!-- The Basics -->
+  <groupId>...</groupId>
+  <artifactId>...</artifactId>
+  <version>...</version>
+  <packaging>...</packaging>
+  <dependencies>...</dependencies>
+  <parent>...</parent>
+  <dependencyManagement>...</dependencyManagement>
+  <modules>...</modules>
+  <properties>...</properties>
+
+  <!-- Build Settings -->
+  <build>...</build>
+  <reporting>...</reporting>
+
+  <!-- More Project Information -->
+  <name>...</name>
+  <description>...</description>
+  <url>...</url>
+  <inceptionYear>...</inceptionYear>
+  <licenses>...</licenses>
+  <organization>...</organization>
+  <developers>...</developers>
+  <contributors>...</contributors>
+
+  <!-- Environment Settings -->
+  <issueManagement>...</issueManagement>
+  <ciManagement>...</ciManagement>
+  <mailingLists>...</mailingLists>
+  <scm>...</scm>
+  <prerequisites>...</prerequisites>
+  <repositories>...</repositories>
+  <pluginRepositories>...</pluginRepositories>
+  <distributionManagement>...</distributionManagement>
+  <profiles>...</profiles>
+</project>
+```
+
+
+## 基本配置
+
+- `project` ： `project` 是 `pom.xml` 中描述符的根。
+- `modelVersion` ：`modelVersion` 指定 `pom.xml` 符合哪个版本的描述符。**maven 2 和 3 只能为 4.0.0**。
+
+### maven的坐标
+
+在 `maven` 中，根据 `groupId`、`artifactId`、`version` 组合成 `groupId:artifactId:version` 来唯一识别一个 `jar` 包。
+
+1. `groupId` - 团体、组织的标识符。团体标识的约定是，它以创建这个项目的组织名称的逆向域名(reverse domain name)开头。一般对应着 `java` 的包结构。
+2. `artifactId` - 单独项目的唯一标识符。比如我们的 `tomcat`、`commons` 等。不要在 `artifactId` 中包含点号(.)。
+3. `version` - 一个项目的特定版本。
+
+   `maven` 有自己的版本规范，一般是如下定义 `major version`、`minor version`、`incremental version-qualifier` ，比如 `1.2.3-beta-01`。
+
+   要说明的是，`maven` 判断**版本的算法是 `major`、`minor`、`incremental` 部分用数字比较，`qualifier` 部分用字符串比较**，所以**要小心 `alpha-2` 和 `alpha-15` 的比较关系，最好用 `alpha-02` 的格式**。
+
+   `maven` 在版本管理时候可以使用几个特殊的字符串 `SNAPSHOT`、`LATEST`、`RELEASE`。比如 `1.0-SNAPSHOT`。各个部分的含义和处理逻辑如下说明：
+
+   1. `SNAPSHOT` - 这个版本一般用于开发过程中，表示**不稳定的版本**。
+   2. `LATEST` - 指某个特定构件的**最新发布**，这个发布可能是一个发布版，也可能是一个 `snapshot` 版，具体看哪个时间最后。
+   3. `RELEASE` ：指**最后一个发布版**。
+
+4. `packaging` - 项目的类型，描述了项目打包后的输出，**默认是 `jar`**。常见的输出类型为：`pom, jar, maven-plugin, ejb, war, ear, rar, par`。
+
+因此**项目打成 `jar` 包会被识别成：`groupId:artifactId:version`**
+
+
+## 依赖
+
+### dependencies
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <dependencies>
+      <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <scope>provided</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.jetbrains.kotlin</groupId>
+        <artifactId>kotlin-reflect</artifactId>
+        <version>${kotlin.version}</version>
+      </dependency>
+    </dependencies>
+</project>
+```
+
+1. `groupId`, `artifactId`, `version` - 和基本配置中的 `groupId、artifactId、version` 意义相同。
+2. `type` - 对应 `packaging` 的类型，**如果不使用 `type` 标签，maven 默认为 `jar`**。
+3. `scope` - 此元素指的是任务的类路径（编译和运行时，测试等）以及如何限制依赖关系的传递性。有 5 种可用的限定范围：
+
+   1. `compile` - 如果没有指定 `scope` 标签，`maven` **默认为这个范围**。编译依赖关系在所有 `classpath` 中都可用。此外，这些依赖关系被传播到依赖项目。
+   2. `provided` - 与 `compile` 类似，但是表示**希望 `jdk` 或容器在运行时提供它,不会被打包到最终的 `artifact` 中**。它只适用于编译和测试 `classpath`，不可传递。
+   3. `runtime` - 此范围表示编译不需要依赖关系，而是用于执行，**只会在运行期可用**。它是在运行时和测试 `classpath`，但不是编译 `classpath`。
+   4. `test` - 此范围表示正常使用应用程序不需要依赖关系，**仅适用于测试编译和执行阶段**。它不是传递的。
+   5. `system` - 此范围与 `provided` 类似，你**需要告诉 `maven` 如何去找到这个依赖**。如果你要引用的依赖在 `maven` 仓库中不存在时，就可以用这个 `scope`。不**推荐使用 `system` 依赖**。
+
+
+4. `systemPath` - **仅当依赖范围是系统时才使用**。否则，如果设置此元素，构建将失败。该路径必须是绝对路径，因此建议使用 `propertie` 来指定特定的路径，如`${java.home}/lib`。由于假定先前安装了系统范围依赖关系，maven 将不会检查项目的仓库，而是检查库文件是否存在。如果没有，maven 将会失败，并建议您手动下载安装。
+5. `optional` - `optional` 让其他项目知道，**当您使用此项目时，您不需要这种依赖性也能正常工作**。
+6. `exclusions` - 包含一个或多个排除元素，每个排除元素都包含一个表示要排除的依赖关系的 `groupId` 和 `artifactId`。与可选项不同，可能或可能不会安装和使用，排除主动从依赖关系树中删除自己。
+
+### parent父模块
+
+`parent` - 父模块 ，子 `POM` 可以使用 `parent` 指定父 `POM` ，然后继承其配置。
+
+`relativePath` - 注意 `relativePath` 元素。在搜索本地和远程存储库之前，它不是必需的，但可以用作 maven 的指示符，以首先**搜索给定该项目父级的路径**。
+
+```xml
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                      https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+     <groupId>org.springframework.boot</groupId>
+     <artifactId>spring-boot-starter-parent</artifactId>
+     <version>2.1.3.RELEASE</version>
+     <relativePath/>
+     <!-- <relativePath>../my-parent</relativePath> -->
+ </parent>
+
+  <artifactId>my-project</artifactId>
+</project>
+```
+
+### modules子模块
+
+声明子模块
+
+父模块 `pom.xml`
+
+```xml
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                      https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!-- 本身声明 -->
+  <groupId>org.codehaus.mojo</groupId>
+  <artifactId>my-parent</artifactId>
+  <version>2.0</version>
+  <packaging>pom</packaging>
+
+  <!-- 子父模块 -->
+  <modules>
+    <module>my-project</module>
+    <module>another-project</module>
+    <module>third-project/pom-example.xml</module>
+  </modules>
+</project>
+```
+
+子模块 `pom.xml`
+
+```xml
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                      https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <!-- 声明父模块 -->
+  <parent>
+    <groupId>org.codehaus.mojo</groupId>
+    <artifactId>my-parent</artifactId>
+    <version>2.0</version>
+  </parent>
+  <modelVersion>4.0.0</modelVersion>
+  <!-- 子模块的artifactId，无需写groupId 继承父级 -->
+  <artifactId>another-project</artifactId>
+</project>
+```
+
+### properties属性
+
+声明属性，可以在 `pom.xml` 中通过 `${property}` 使用
+
+下面例子声明了几个变量，并在 `<dependency>` 中使用 `${kotlin.version}`
+
+```xml
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                      https://maven.apache.org/xsd/maven-4.0.0.xsd">
+   <properties>
+     <java.version>1.8</java.version>
+     <kotlin.version>1.3.41</kotlin.version>
+     <kotlin.compiler.languageVersion>1.3</kotlin.compiler.languageVersion>
+     <kotlin.compiler.apiVersion>1.3</kotlin.compiler.apiVersion>
+     <kotlin.compiler.jvmTarget>1.8</kotlin.compiler.jvmTarget>
+     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+   </properties>
+
+   <dependencies>
+     <dependency>
+       <groupId>org.jetbrains.kotlin</groupId>
+       <artifactId>kotlin-reflect</artifactId>
+       <version>${kotlin.version}</version>
+     </dependency>
+   </dependencies>
+</project>
+```
+
+### dependencyManagement
+
+`dependencyManagement` 是表示依赖 `jar` 包的声明。
+
+即你在项目中的 `dependencyManagement` 下声明了依赖，**`maven` 不会加载该依赖**，**`dependencyManagement` 声明可以被子 `POM` 继承**。
+
+```xml
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                      https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <dependencyManagement>
+    <dependencies>
+      <!-- https://mvnrepository.com/artifact/org.aspectj/aspectjweaver -->
+      <dependency>
+          <groupId>org.aspectj</groupId>
+          <artifactId>aspectjweaver</artifactId>
+          <version>1.9.3</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+</project>
+```
+
+`dependencyManagement` 的一个使用案例是当有父子项目的时候，
+
+父项目中可以利用 `dependencyManagement` 声明子项目中需要用到的依赖 `jar` 包，
+
+之后，当某个或者某几个子项目需要加载该依赖的时候，就可以在子项目中 `dependencies` 节点只配置 `groupId` 和 `artifactId` 就可以完成依赖的引用。
+
+**`dependencyManagement` 主要是为了统一管理依赖包的版本，确保所有子项目使用的版本一致**，类似的还有 `plugins` 和 `pluginManagement` 。
+
+
+## 构建
+
+`build` 构建可以分为2种：`project build` `profile build`
+
+```xml
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                      https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+  <!-- "Project Build" contains more elements than just the BaseBuild set -->
+  <build>
+    <defaultGoal>install</defaultGoal>
+    <directory>${basedir}/target</directory>
+    <finalName>${artifactId}-${version}</finalName>
+    <filters>
+      <filter>filters/filter1.properties</filter>
+    </filters>
+  </build>
+
+  <profiles>
+    <profile>
+      <!-- "Profile Build" contains a subset of "Project Build"s elements -->
+      <build>...</build>
+    </profile>
+  </profiles>
+
+</project>
+```
+
+### build构建
+
+```xml
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                      https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <build>
+    <defaultGoal>install</defaultGoal>
+    <directory>${basedir}/target</directory>
+    <finalName>${artifactId}-${version}</finalName>
+    <filters>
+      <filter>filters/filter1.properties</filter>
+    </filters>
+  </build>
+
+</project>
+```
+
+1. `defaultGoal`：默认执行目标或阶段。如果给出了一个目标，它应该被定义为它在命令行中（如 `jar：jar`）。如果定义了一个阶段（如安装），也是如此。
+2. `directory`：**构建时的输出路径**。**默认为：`${basedir}/target`**
+3. `finalName`：这是项目的**最终构建名称**（不包括文件扩展名，例如：`my-project-1.0.jar`）
+4. `filters`：定义 `* .properties` 文件，其中包含适用于接受其设置的资源的属性列表（如下所述）。换句话说，过滤器文件中定义的 `name = value` 对在代码中替换 `${name}` 字符串。
+5. `resources`：资源的配置。资源文件通常不是代码，不需要编译，而是在项目需要捆绑使用的内容。
+
+   ```xml
+   <project xmlns="http://maven.apache.org/POM/4.0.0"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                         https://maven.apache.org/xsd/maven-4.0.0.xsd">
+     <build>
+       <resources>
+         <resource>
+           <targetPath>META-INF/plexus</targetPath>
+           <filtering>false</filtering>
+           <directory>${basedir}/src/main/plexus</directory>
+           <includes>
+             <include>configuration.xml</include>
+           </includes>
+           <excludes>
+             <exclude>**/*.properties</exclude>
+           </excludes>
+         </resource>
+       </resources>
+     </build>
+
+   </project>
+   ```
+
+   1. `resources`: 资源元素的列表，每个资源元素描述与此项目关联的文件和何处包含文件
+   2. `targetPath`: 指定从构建中放置资源集的目录结构。目标路径默认为基本目录。将要包装在 `jar` 中的资源的通常指定的目标路径是 `META-INF`。
+   3. `filtering`: 值为 `true` 或 `false`。表示是否要为此资源启用过滤。请注意，该过滤器 `* .properties` 文件不必定义为进行过滤 - 资源还可以使用默认情况下在 `POM` 中定义的属性（例如 `${project.version}` ），并将其传递到命令行中 `-D` 标志（例如，`-Dname = value`）或由 `properties` 元素显式定义。过滤文件覆盖上面。
+   4. `directory`: 值定义了资源的路径。构建的默认目录是 `${basedir}/src/main/resources`。
+   5. `includes`: 一组文件匹配模式，指定目录中要包括的文件，使用 `*` 作为通配符。
+   6. `excludes`: 与 `includes` 类似，指定目录中要排除的文件，使用 `*` 作为通配符。注意：如果 `include` 和 `exclude` 发生冲突，`maven` 会以 `exclude` 作为有效项。
+   7. `testResources`: `testResources` 与 `resources` 功能类似，区别仅在于：`testResources` 指定的资源仅用于 `test` 阶段，并且其默认资源目录为：`${basedir}/src/test/resources`
+
+
+
+
+
+## 总结
+
+
